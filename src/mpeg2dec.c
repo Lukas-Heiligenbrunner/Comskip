@@ -34,6 +34,7 @@
 #include <argtable2.h>
 
 //#define SELFTEST
+#define SHOW_VIDEO_TIMING
 
 int pass = 0;
 double test_pts = 0.0;
@@ -933,19 +934,7 @@ int video_packet_process(VideoState *is, AVPacket *packet) {
                                  packet);
 
     if (len1 < 0) {
-        // todo maybe delete this if
-        if (len1 == -1 && thread_count > 1) {
-            InitComSkip();
-            thread_count = 1;
-            is->seek_req = 1;
-            is->seek_pos = 0;
-            is->seek_pts = 0.0;
-            pev_best_effort_timestamp = 0;
-            best_effort_timestamp = 0;
-            framenum = 1;
-            Debug(1, "Restarting processing in single thread mode because frame size is changing \n");
-            goto quit;
-        }
+        printf("Warning: frame size is changing \n");
     }
 
     // Did we get a video frame?
@@ -1110,37 +1099,6 @@ int video_packet_process(VideoState *is, AVPacket *packet) {
 
         if (retries == 0) {
             if (is->video_clock - is->seek_pts > -frame_delay / 2.0) {
-
-#ifdef SELFTEST
-                if (selftest == 1 && pass == 1 /*&& framenum > 501 && is->video_clock > 0 */) //Seek test
-                {
-                    if (is->video_clock < selftest_target - 0.05 || is->video_clock > selftest_target + 0.05) {
-                        sample_file = fopen("seektest.log", "a+");
-                        fprintf(sample_file, "Seek error: target=%8.1f, result=%8.1f, error=%6.3f, size=%8.1f, mode=%s, \"%s\"\n",
-                                is->seek_pts,
-                                is->video_clock,
-                                is->video_clock - is->seek_pts,
-                                is->duration,
-                                (is->seek_by_bytes ? "byteseek" : "timeseek"),
-                                is->filename);
-                        fclose(sample_file);
-                        Debug(1, "\nSelftest 1 FAILED: Seektest\n:Starting test 3\n");
-                    } else
-                        Debug(1, "\nSelftest 1 OK: Seektest\nStarting test 3\n");
-                    /*
-                                    if (tries ==  0 && fabs((double) av_q2d(is->video_st->time_base)* ((double)(packet->pts - is->video_st->start_time - is->seek_pos ))) > 2.0) {
-                     				   is->seek_req=1;
-                    				   is->seek_pos = 20.0 / av_q2d(is->video_st->time_base);
-                    				   is->seek_flags = AVSEEK_FLAG_BYTE;
-                    				   tries++;
-                                   } else
-                     */
-                    selftest = 3;
-                    live_tv_retries = 1;
-                    pass = 0;
-//                    exit(1);
-                }
-#endif
                 if (SubmitFrame(is->video_st, is->pFrame, is->video_clock)) {
                     goto quit;
                 }
@@ -1876,19 +1834,6 @@ void searchCom(char* videoname){
             old_clock = is->video_clock;
             empty_packet_count = 0;
         }
-#ifdef SELFTEST
-        if (selftest == 1 && pass == 0 && is->seek_req == 0 && framenum == 50) //Seek test
-        {
-            if (is->duration > 2) {
-                selftest_target = fmin(450.0, is->duration - 2);
-            } else {
-                selftest_target = 1.0;
-            }
-            Set_seek(is, selftest_target);
-            pass = 1;
-            framenum++;
-        }
-#endif
     }
 
     if (selftest == 1 && pass == 1 /*&& framenum > 501 && is->video_clock > 0 */) {

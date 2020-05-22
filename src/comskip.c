@@ -5481,6 +5481,9 @@ void OpenOutputFiles() {
 
 #define CLOSEOUTFILE(F) { if ((F) && last) fclose(F); }
 
+/**
+ * write times to output file
+ */
 void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
     int s_start, s_end;
     int count;
@@ -5512,9 +5515,10 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
         out_file = myfopen(out_filename, "a+");
         if (out_file) {
             fprintf(out_file, "%li\t%li\n", F2F(sage_framenumber_bug ? s_start / 2 : s_start), F2F(sage_framenumber_bug ? s_end / 2 : s_end));
+            fprintf(stdout, "%li\t%li\n", F2F(sage_framenumber_bug ? s_start / 2 : s_start), F2F(sage_framenumber_bug ? s_end / 2 : s_end));
             fclose(out_file);
-        } else        // If the file can't be opened for writting, wait half a second and try again
-        {
+        } else {
+            // If the file can't be opened for writting, wait half a second and try again
             Sleep(50L);
             out_file = myfopen(out_filename, "a+");
             if (out_file) {
@@ -7036,7 +7040,7 @@ void LoadIniFile() {
         if ((tmp = FindNumber(data, "volume_slip=", (double) volume_slip)) > -1) volume_slip = (int) tmp;
         //       if ((tmp = FindNumber(data, "variable_bitrate=", (double) variable_bitrate)) > -1) variable_bitrate = (int)tmp;
         if ((tmp = FindNumber(data, "lowres=", (double) lowres)) > -1) lowres = (int) tmp;
-        if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int)tmp;
+        if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int) tmp;
 
 
         AddIniString("[Aspect Ratio]\n");
@@ -10417,7 +10421,7 @@ void Debug(int level, char *fmt, ...) {
     va_start(ap, fmt);
     vsprintf(debugText, fmt, ap);
     va_end(ap);
-
+    fprintf(stdout, "%s", debugText);
     if (output_console) _cprintf("%s", debugText);
 
     if (!log_file)
