@@ -116,93 +116,93 @@ static void dx_draw_frame (vo_instance_t * , uint8_t * const * , void * );
 
 char *ExtFilter[] =
 {
-	".avi", ".d2s", ".d2v", ".wav"
+    ".avi", ".d2s", ".d2v", ".wav"
 };
 
 
 BOOL PopFileDlg(PTSTR pstrFileName, HWND hOwner, int Status)
 {
-	static char *szFilter, *ext;
-	int count = 0;
+    static char *szFilter, *ext;
+    int count = 0;
 
-	switch (Status)
-	{
-		case OPEN_VOB:
-			szFilter = TEXT ("MPEG-2 Files (*.vob; *.m2p; *.m2v; *.mpv; *.trp; *.ts; *.tp)\0*.vob;*.m2p;*.m2v;*.mpv;*.trp;*.ts;*.tp\0")  \
-				TEXT ("Program Streams (*.vob; *.m2p; *.m2v; *.mpv)\0*.vob;*.m2p;*.m2v;*.mpv\0")  \
-				TEXT ("Transport Streams (*.trp; *.ts; *.tp)\0*.trp;*.ts;*.tp\0")  \
-				TEXT ("All Files (*.*)\0*.*\0");
-			break;
+    switch (Status)
+    {
+        case OPEN_VOB:
+            szFilter = TEXT ("MPEG-2 Files (*.vob; *.m2p; *.m2v; *.mpv; *.trp; *.ts; *.tp)\0*.vob;*.m2p;*.m2v;*.mpv;*.trp;*.ts;*.tp\0")  \
+                TEXT ("Program Streams (*.vob; *.m2p; *.m2v; *.mpv)\0*.vob;*.m2p;*.m2v;*.mpv\0")  \
+                TEXT ("Transport Streams (*.trp; *.ts; *.tp)\0*.trp;*.ts;*.tp\0")  \
+                TEXT ("All Files (*.*)\0*.*\0");
+            break;
 
-		case SAVE_AVI:
-			szFilter = TEXT ("AVI File (*.avi)\0*.avi; *.ac3; *.wav; *.mpa\0")  \
-				TEXT ("All Files (*.*)\0*.*\0");
-			break;
+        case SAVE_AVI:
+            szFilter = TEXT ("AVI File (*.avi)\0*.avi; *.ac3; *.wav; *.mpa\0")  \
+                TEXT ("All Files (*.*)\0*.*\0");
+            break;
 
-		case OPEN_D2V:
-			szFilter = TEXT ("DVD2AVI Project File (*.d2v)\0*.d2v\0")  \
-				TEXT ("All Files (*.*)\0*.*\0");
-			break;
+        case OPEN_D2V:
+            szFilter = TEXT ("DVD2AVI Project File (*.d2v)\0*.d2v\0")  \
+                TEXT ("All Files (*.*)\0*.*\0");
+            break;
 
-		case SAVE_D2V:
-			szFilter = TEXT ("DVD2AVI Project File (*.d2v)\0*.d2v\0")  \
-				TEXT ("All Files (*.*)\0*.*\0");
-			break;
+        case SAVE_D2V:
+            szFilter = TEXT ("DVD2AVI Project File (*.d2v)\0*.d2v\0")  \
+                TEXT ("All Files (*.*)\0*.*\0");
+            break;
 
-		case OPEN_SESS:
-			szFilter = TEXT ("DVD2AVI Session File (*.d2s)\0*.d2s\0")  \
-				TEXT ("All Files (*.*)\0*.*\0");
-			break;
+        case OPEN_SESS:
+            szFilter = TEXT ("DVD2AVI Session File (*.d2s)\0*.d2s\0")  \
+                TEXT ("All Files (*.*)\0*.*\0");
+            break;
 
-		case SAVE_SESS:
-			szFilter = TEXT ("DVD2AVI Session File (*.d2s)\0*.d2s\0")  \
-				TEXT ("All Files (*.*)\0*.*\0");
-			break;
+        case SAVE_SESS:
+            szFilter = TEXT ("DVD2AVI Session File (*.d2s)\0*.d2s\0")  \
+                TEXT ("All Files (*.*)\0*.*\0");
+            break;
 
-		case OPEN_WAV:
-		case SAVE_WAV:
-			szFilter = TEXT ("WAV File (*.wav)\0*.wav\0")  \
-				TEXT ("All Files (*.*)\0*.*\0");
-			break;
-	}
+        case OPEN_WAV:
+        case SAVE_WAV:
+            szFilter = TEXT ("WAV File (*.wav)\0*.wav\0")  \
+                TEXT ("All Files (*.*)\0*.*\0");
+            break;
+    }
 
-	ofn.lStructSize       = sizeof (OPENFILENAME) ;
-	ofn.hwndOwner         = hOwner ;
-	ofn.hInstance         = hInst ;
-	ofn.lpstrFilter       = szFilter ;
-	ofn.nMaxFile          = _MAX_PATH ;
-	ofn.nMaxFileTitle     = _MAX_PATH ;
-	ofn.lpstrFile         = pstrFileName ;
+    ofn.lStructSize       = sizeof (OPENFILENAME) ;
+    ofn.hwndOwner         = hOwner ;
+    ofn.hInstance         = hInst ;
+    ofn.lpstrFilter       = szFilter ;
+    ofn.nMaxFile          = _MAX_PATH ;
+    ofn.nMaxFileTitle     = _MAX_PATH ;
+    ofn.lpstrFile         = pstrFileName ;
 
-	switch (Status)
-	{
-		case OPEN_VOB:
-		case OPEN_D2V:
-		case OPEN_SESS:
-		case OPEN_WAV:
-			ofn.Flags = OFN_HIDEREADONLY | OFN_FILEMUSTEXIST;
-			return GetOpenFileName(&ofn);
+    switch (Status)
+    {
+        case OPEN_VOB:
+        case OPEN_D2V:
+        case OPEN_SESS:
+        case OPEN_WAV:
+            ofn.Flags = OFN_HIDEREADONLY | OFN_FILEMUSTEXIST;
+            return GetOpenFileName(&ofn);
 
-		case SAVE_WAV:
-			count++;
-		case SAVE_D2V:
-			count++;
-		case SAVE_SESS:
-			count++;
-		case SAVE_AVI:
-			ofn.Flags = OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT | OFN_EXPLORER;
-			if (GetSaveFileName(&ofn))
-			{
-				ext = strrchr(pstrFileName, '.');
+        case SAVE_WAV:
+            count++;
+        case SAVE_D2V:
+            count++;
+        case SAVE_SESS:
+            count++;
+        case SAVE_AVI:
+            ofn.Flags = OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT | OFN_EXPLORER;
+            if (GetSaveFileName(&ofn))
+            {
+                ext = strrchr(pstrFileName, '.');
 
-				if (ext!=NULL && !_strnicmp(ext, ExtFilter[count], 4))
-					strncpy(ext, ext+4, 1);
+                if (ext!=NULL && !_strnicmp(ext, ExtFilter[count], 4))
+                    strncpy(ext, ext+4, 1);
 
-				return true;
-			}
-	}
+                return true;
+            }
+    }
 
-	return false;
+    return false;
 }
 
 */
@@ -1016,25 +1016,25 @@ main()
      int r,g,b;
 
      /*
-     	double  R,G,B;
-     	double Y,U,V;
+         double  R,G,B;
+         double Y,U,V;
 
-     	R = 0;
-     	G = 0;
-     	B = 0;
+         R = 0;
+         G = 0;
+         B = 0;
 
-     	Y 	= 0.299*R + 0.587*G + 0.114*B;
-     	U 	= - 0.147*R - 0.289*G + 0.436*B;
-     	V 	= 0.615*R - 0.515*G - 0.100*B;
+         Y 	= 0.299*R + 0.587*G + 0.114*B;
+         U 	= - 0.147*R - 0.289*G + 0.436*B;
+         V 	= 0.615*R - 0.515*G - 0.100*B;
 
 
-     	R = 1;
-     	G = 1;
-     	B = 1;
+         R = 1;
+         G = 1;
+         B = 1;
 
-     	Y 	= 0.299*R + 0.587*G + 0.114*B;
-     	U 	= - 0.147*R - 0.289*G + 0.436*B;
-     	V 	= 0.615*R - 0.515*G - 0.100*B;
+         Y 	= 0.299*R + 0.587*G + 0.114*B;
+         U 	= - 0.147*R - 0.289*G + 0.436*B;
+         V 	= 0.615*R - 0.515*G - 0.100*B;
      */
 
      vo_init(MAXWIDTH,MAXHEIGHT, "test");
@@ -1069,7 +1069,7 @@ main()
 
 #else
 /* these need a home, even though this file is mostly not used */
-int xPos,yPos,lMouseDown;
+int xPos, yPos, lMouseDown;
 int key;
 char osname[1024];
 #endif

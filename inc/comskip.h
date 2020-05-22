@@ -6,5 +6,5 @@
 #endif
 #define _UNICODE
 
-#define MAXWIDTH	4000
-#define MAXHEIGHT	2400
+#define MAXWIDTH    4000
+#define MAXHEIGHT    2400

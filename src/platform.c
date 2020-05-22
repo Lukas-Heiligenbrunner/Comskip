@@ -65,44 +65,41 @@ int myremove(char * f)
 #endif
 
 #if !defined(_WIN32)
-int mystat(char * f, stath s)
-{
-  return stat(f, s);
+
+int mystat(char *f, stath s) {
+    return stat(f, s);
 }
 
-fileh myfopen(const char * f, char * m)
-{
-  return fopen(f, m);
+fileh myfopen(const char *f, char *m) {
+    return fopen(f, m);
 }
 
-int myremove(char * f)
-{
-  return unlink(f);
+int myremove(char *f) {
+    return unlink(f);
 }
+
 #endif
 
 #if !defined(_WIN32)
-int min(int i, int j)
-{
-  return(i<j?i:j);
+
+int min(int i, int j) {
+    return (i < j ? i : j);
 }
 
-int max(int i, int j)
-{
-  return(i>j?i:j);
+int max(int i, int j) {
+    return (i > j ? i : j);
 }
 
-char *_strupr(char *string)
-{
+char *_strupr(char *string) {
     char *s;
 
-    if (string)
-    {
+    if (string) {
         for (s = string; *s; ++s)
             *s = toupper(*s);
     }
     return string;
 }
+
 #endif
 
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)

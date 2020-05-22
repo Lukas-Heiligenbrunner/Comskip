@@ -29,15 +29,17 @@ extern "C" {
 
 
 /* bit masks for arg_hdr.flag */
-enum
-    {
-    ARG_TERMINATOR=0x1,
-    ARG_HASVALUE=0x2
-    };
+enum {
+    ARG_TERMINATOR = 0x1,
+    ARG_HASVALUE = 0x2
+};
 
 typedef void (arg_resetfn)(void *parent);
+
 typedef int  (arg_scanfn)(void *parent, const char *argval);
+
 typedef int  (arg_checkfn)(void *parent);
+
 typedef void (arg_errorfn)(void *parent, FILE *fp, int error, const char *argval, const char *progname);
 
 
@@ -58,162 +60,173 @@ typedef void (arg_errorfn)(void *parent, FILE *fp, int error, const char *argval
  * if desired, but the original intention is for them to be set by the
  * constructor and left unaltered.
  */
-struct arg_hdr
-   {
-   char         flag;        /* Modifier flags: ARG_TERMINATOR, ARG_HASVALUE. */
-   const char  *shortopts;   /* String defining the short options */
-   const char  *longopts;    /* String defiing the long options */
-   const char  *datatype;    /* Description of the argument data type */
-   const char  *glossary;    /* Description of the option as shown by arg_print_glossary function */
-   int          mincount;    /* Minimum number of occurences of this option accepted */
-   int          maxcount;    /* Maximum number of occurences if this option accepted */
-   void        *parent;      /* Pointer to parent arg_xxx struct */
-   arg_resetfn *resetfn;     /* Pointer to parent arg_xxx reset function */
-   arg_scanfn  *scanfn;      /* Pointer to parent arg_xxx scan function */
-   arg_checkfn *checkfn;     /* Pointer to parent arg_xxx check function */
-   arg_errorfn *errorfn;     /* Pointer to parent arg_xxx error function */
-   };
+struct arg_hdr {
+    char flag;        /* Modifier flags: ARG_TERMINATOR, ARG_HASVALUE. */
+    const char *shortopts;   /* String defining the short options */
+    const char *longopts;    /* String defiing the long options */
+    const char *datatype;    /* Description of the argument data type */
+    const char *glossary;    /* Description of the option as shown by arg_print_glossary function */
+    int mincount;    /* Minimum number of occurences of this option accepted */
+    int maxcount;    /* Maximum number of occurences if this option accepted */
+    void *parent;      /* Pointer to parent arg_xxx struct */
+    arg_resetfn *resetfn;     /* Pointer to parent arg_xxx reset function */
+    arg_scanfn *scanfn;      /* Pointer to parent arg_xxx scan function */
+    arg_checkfn *checkfn;     /* Pointer to parent arg_xxx check function */
+    arg_errorfn *errorfn;     /* Pointer to parent arg_xxx error function */
+};
 
-struct arg_rem
-   {
-   struct arg_hdr hdr;      /* The mandatory argtable header struct */
-   };
+struct arg_rem {
+    struct arg_hdr hdr;      /* The mandatory argtable header struct */
+};
 
-struct arg_lit
-   {
-   struct arg_hdr hdr;      /* The mandatory argtable header struct */
-   int count;               /* Number of occurences of this parsed */
-   };
+struct arg_lit {
+    struct arg_hdr hdr;      /* The mandatory argtable header struct */
+    int count;               /* Number of occurences of this parsed */
+};
 
-struct arg_int
-   {
-   struct arg_hdr hdr;      /* The mandatory argtable header struct */
-   int count;               /* Number of occurences of this parsed */
-   int *ival;               /* Storage for integer argument values */
-   };
+struct arg_int {
+    struct arg_hdr hdr;      /* The mandatory argtable header struct */
+    int count;               /* Number of occurences of this parsed */
+    int *ival;               /* Storage for integer argument values */
+};
 
-struct arg_dbl
-   {
-   struct arg_hdr hdr;      /* The mandatory argtable header struct */
-   int count;               /* Number of occurences of this parsed */
-   double *dval;            /* Storage for double argument values */
-   };
+struct arg_dbl {
+    struct arg_hdr hdr;      /* The mandatory argtable header struct */
+    int count;               /* Number of occurences of this parsed */
+    double *dval;            /* Storage for double argument values */
+};
 
-struct arg_str
-   {
-   struct arg_hdr hdr;      /* The mandatory argtable header struct */
-   int count;               /* Number of occurences of this parsed */
-   const char **sval;       /* Storage for string argument pointers */
-   };
+struct arg_str {
+    struct arg_hdr hdr;      /* The mandatory argtable header struct */
+    int count;               /* Number of occurences of this parsed */
+    const char **sval;       /* Storage for string argument pointers */
+};
 
-struct arg_file
-   {
-   struct arg_hdr hdr;      /* The mandatory argtable header struct */
-   int count;               /* Number of occurences of this parsed */
-   const char **filename;   /* Storage for filename string pointers */
-   const char **basename;   /* Storage for basename string pointers */
-   const char **extension;  /* Storage for extension string pointers */
-   };
+struct arg_file {
+    struct arg_hdr hdr;      /* The mandatory argtable header struct */
+    int count;               /* Number of occurences of this parsed */
+    const char **filename;   /* Storage for filename string pointers */
+    const char **basename;   /* Storage for basename string pointers */
+    const char **extension;  /* Storage for extension string pointers */
+};
 
 
-enum {ARG_ELIMIT=1, ARG_EMALLOC, ARG_ENOMATCH, ARG_ELONGOPT, ARG_EMISSARG};
-struct arg_end
-   {
-   struct arg_hdr hdr;      /* The mandatory argtable header struct */
-   int count;               /* Number of occurences of this parsed */
-   int *error;              /* Storage for error codes */
-   void **parent;           /* Storage for pointers to parent arg_xxx */
-   const char **argval;     /* Storage for pointers to offending command line string */
-   };
+enum {
+    ARG_ELIMIT = 1, ARG_EMALLOC, ARG_ENOMATCH, ARG_ELONGOPT, ARG_EMISSARG
+};
+struct arg_end {
+    struct arg_hdr hdr;      /* The mandatory argtable header struct */
+    int count;               /* Number of occurences of this parsed */
+    int *error;              /* Storage for error codes */
+    void **parent;           /* Storage for pointers to parent arg_xxx */
+    const char **argval;     /* Storage for pointers to offending command line string */
+};
 
 
 /**** arg_xxx constructor functions *********************************/
 
-struct arg_rem* arg_rem(const char* datatype, const char* glossary);
+struct arg_rem *arg_rem(const char *datatype, const char *glossary);
 
-struct arg_lit* arg_lit0(const char* shortopts,
-                         const char* longopts,
-                         const char* glossary);
-struct arg_lit* arg_lit1(const char* shortopts,
-                         const char* longopts,
+struct arg_lit *arg_lit0(const char *shortopts,
+                         const char *longopts,
                          const char *glossary);
-struct arg_lit* arg_litn(const char* shortopts,
-                         const char* longopts,
+
+struct arg_lit *arg_lit1(const char *shortopts,
+                         const char *longopts,
+                         const char *glossary);
+
+struct arg_lit *arg_litn(const char *shortopts,
+                         const char *longopts,
                          int mincount,
                          int maxcount,
                          const char *glossary);
 
-struct arg_int* arg_int0(const char* shortopts,
-                         const char* longopts,
-                         const char* datatype,
-                         const char* glossary);
-struct arg_int* arg_int1(const char* shortopts,
-                         const char* longopts,
-                         const char* datatype,
+struct arg_int *arg_int0(const char *shortopts,
+                         const char *longopts,
+                         const char *datatype,
                          const char *glossary);
-struct arg_int* arg_intn(const char* shortopts,
-                         const char* longopts,
+
+struct arg_int *arg_int1(const char *shortopts,
+                         const char *longopts,
+                         const char *datatype,
+                         const char *glossary);
+
+struct arg_int *arg_intn(const char *shortopts,
+                         const char *longopts,
                          const char *datatype,
                          int mincount,
                          int maxcount,
                          const char *glossary);
 
-struct arg_dbl* arg_dbl0(const char* shortopts,
-                         const char* longopts,
-                         const char* datatype,
-                         const char* glossary);
-struct arg_dbl* arg_dbl1(const char* shortopts,
-                         const char* longopts,
-                         const char* datatype,
+struct arg_dbl *arg_dbl0(const char *shortopts,
+                         const char *longopts,
+                         const char *datatype,
                          const char *glossary);
-struct arg_dbl* arg_dbln(const char* shortopts,
-                         const char* longopts,
+
+struct arg_dbl *arg_dbl1(const char *shortopts,
+                         const char *longopts,
+                         const char *datatype,
+                         const char *glossary);
+
+struct arg_dbl *arg_dbln(const char *shortopts,
+                         const char *longopts,
                          const char *datatype,
                          int mincount,
                          int maxcount,
                          const char *glossary);
 
-struct arg_str* arg_str0(const char* shortopts,
-                         const char* longopts,
-                         const char* datatype,
-                         const char* glossary);
-struct arg_str* arg_str1(const char* shortopts,
-                         const char* longopts,
-                         const char* datatype,
+struct arg_str *arg_str0(const char *shortopts,
+                         const char *longopts,
+                         const char *datatype,
                          const char *glossary);
-struct arg_str* arg_strn(const char* shortopts,
-                         const char* longopts,
-                         const char* datatype,
+
+struct arg_str *arg_str1(const char *shortopts,
+                         const char *longopts,
+                         const char *datatype,
+                         const char *glossary);
+
+struct arg_str *arg_strn(const char *shortopts,
+                         const char *longopts,
+                         const char *datatype,
                          int mincount,
                          int maxcount,
                          const char *glossary);
 
-struct arg_file* arg_file0(const char* shortopts,
-                           const char* longopts,
-                           const char* datatype,
-                           const char* glossary);
-struct arg_file* arg_file1(const char* shortopts,
-                           const char* longopts,
-                           const char* datatype,
+struct arg_file *arg_file0(const char *shortopts,
+                           const char *longopts,
+                           const char *datatype,
                            const char *glossary);
-struct arg_file* arg_filen(const char* shortopts,
-                           const char* longopts,
-                           const char* datatype,
+
+struct arg_file *arg_file1(const char *shortopts,
+                           const char *longopts,
+                           const char *datatype,
+                           const char *glossary);
+
+struct arg_file *arg_filen(const char *shortopts,
+                           const char *longopts,
+                           const char *datatype,
                            int mincount,
                            int maxcount,
                            const char *glossary);
 
-struct arg_end* arg_end(int maxerrors);
+struct arg_end *arg_end(int maxerrors);
 
 
 /**** other functions *******************************************/
 int arg_nullcheck(void **argtable);
+
 int arg_parse(int argc, char **argv, void **argtable);
+
 void arg_print_option(FILE *fp, const char *shortopts, const char *longopts, const char *datatype, const char *suffix);
+
 void arg_print_syntax(FILE *fp, void **argtable, const char *suffix);
+
 void arg_print_syntaxv(FILE *fp, void **argtable, const char *suffix);
+
 void arg_print_glossary(FILE *fp, void **argtable, const char *format);
-void arg_print_errors(FILE* fp, struct arg_end* end, const char* progname);
+
+void arg_print_errors(FILE *fp, struct arg_end *end, const char *progname);
+
 void arg_freetable(void **argtable, size_t n);
 
 /**** deprecated functions, for back-compatibility only ********/

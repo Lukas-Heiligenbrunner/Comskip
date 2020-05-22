@@ -3,17 +3,22 @@ For now, integration with ccextractor is a quick hack. It could get better with 
 #include "../../inc/platform.h"
 #include "../../inc/ccextratorwin/ccextractor.h"
 #include "../../inc/ccextratorwin/608.h"
+
 #ifdef _WIN32
 #include <io.h>
 #else
+
 #include <unistd.h>
+
 #endif
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
 
-LONG process_block (unsigned char *data, LONG length);
+LONG process_block(unsigned char *data, LONG length);
+
 extern LONG result;
 
 unsigned int header_state;
@@ -22,10 +27,10 @@ int cc608_parity_table[256];
 
 #define AVERROR_IO          (-2)
 
-#define VBI_TYPE_TELETEXT 	0x1 	// Teletext (uses lines 6-22 for PAL, 10-21 for NTSC)
-#define VBI_TYPE_CC 		0x4 	// Closed Captions (line 21 NTSC, line 22 PAL)
-#define VBI_TYPE_WSS 		0x5 	// Wide Screen Signal (line 20 NTSC, line 23 PAL)
-#define VBI_TYPE_VPS 		0x7 	// Video Programming System (PAL) (line 16)
+#define VBI_TYPE_TELETEXT    0x1    // Teletext (uses lines 6-22 for PAL, 10-21 for NTSC)
+#define VBI_TYPE_CC        0x4    // Closed Captions (line 21 NTSC, line 22 PAL)
+#define VBI_TYPE_WSS        0x5    // Wide Screen Signal (line 20 NTSC, line 23 PAL)
+#define VBI_TYPE_VPS        0x7    // Video Programming System (PAL) (line 16)
 
 #define MAX_SYNC_SIZE 100000
 #define PACK_START_CODE             ((unsigned int)0x000001ba)
@@ -71,8 +76,6 @@ enum CodecType {
     CODEC_TYPE_DATA,
     CODEC_TYPE_SUBTITLE,
 };
-
-
 
 
 enum CodecID {
@@ -170,7 +173,7 @@ enum CodecID {
     CODEC_ID_CAVS,
 
     /* various pcm "codecs" */
-    CODEC_ID_PCM_S16LE= 0x10000,
+    CODEC_ID_PCM_S16LE = 0x10000,
     CODEC_ID_PCM_S16BE,
     CODEC_ID_PCM_U16LE,
     CODEC_ID_PCM_U16BE,
@@ -189,7 +192,7 @@ enum CodecID {
     CODEC_ID_PCM_S24DAUD,
 
     /* various adpcm codecs */
-    CODEC_ID_ADPCM_IMA_QT= 0x11000,
+    CODEC_ID_ADPCM_IMA_QT = 0x11000,
     CODEC_ID_ADPCM_IMA_WAV,
     CODEC_ID_ADPCM_IMA_DK3,
     CODEC_ID_ADPCM_IMA_DK4,
@@ -209,20 +212,20 @@ enum CodecID {
     CODEC_ID_ADPCM_SBPRO_2,
 
     /* AMR */
-    CODEC_ID_AMR_NB= 0x12000,
+    CODEC_ID_AMR_NB = 0x12000,
     CODEC_ID_AMR_WB,
 
     /* RealAudio codecs*/
-    CODEC_ID_RA_144= 0x13000,
+    CODEC_ID_RA_144 = 0x13000,
     CODEC_ID_RA_288,
 
     /* various DPCM codecs */
-    CODEC_ID_ROQ_DPCM= 0x14000,
+    CODEC_ID_ROQ_DPCM = 0x14000,
     CODEC_ID_INTERPLAY_DPCM,
     CODEC_ID_XAN_DPCM,
     CODEC_ID_SOL_DPCM,
 
-    CODEC_ID_MP2= 0x15000,
+    CODEC_ID_MP2 = 0x15000,
     CODEC_ID_MP3, /* prefered ID for MPEG Audio layer 1, 2 or3 decoding */
     CODEC_ID_AAC,
     CODEC_ID_MPEG4AAC,
@@ -252,7 +255,7 @@ enum CodecID {
     CODEC_ID_QCELP,
 
     /* subtitle codecs */
-    CODEC_ID_DVD_SUBTITLE= 0x17000,
+    CODEC_ID_DVD_SUBTITLE = 0x17000,
     CODEC_ID_DVB_SUBTITLE,
 
     /* teletext codecs */
@@ -262,7 +265,7 @@ enum CodecID {
     /* DSMCC codec */
     CODEC_ID_DSMCC_B,
 
-    CODEC_ID_MPEG2TS= 0x20000, /* _FAKE_ codec to indicate a raw MPEG2 transport
+    CODEC_ID_MPEG2TS = 0x20000, /* _FAKE_ codec to indicate a raw MPEG2 transport
                                stream (only used by libavformat) */
 };
 
@@ -271,39 +274,37 @@ typedef struct AVPacket {
     LONG pts;                            ///< presentation time stamp in time_base units
     LONG dts;                            ///< decompression time stamp in time_base units
     unsigned char *data;
-    int   size;
-    int   stream_index;
-    int   flags;
-    int   duration;                         ///< presentation duration in time_base units (0 if not available)
-    void  (*destruct)(struct AVPacket *);
-    void  *priv;
+    int size;
+    int stream_index;
+    int flags;
+    int duration;                         ///< presentation duration in time_base units (0 if not available)
+    void (*destruct)(struct AVPacket *);
+
+    void *priv;
     LONG pos;                            ///< byte position in stream, -1 if unknown
-    int    codec_id;
-    int    type;
+    int codec_id;
+    int type;
 } AVPacket;
 
 AVPacket av;
 
-int get_be16()
-{
-    unsigned char a,b;
+int get_be16() {
+    unsigned char a, b;
     buffered_read_byte (&a);
     buffered_read_byte (&b);
-    return (a<<8) | b;
+    return (a << 8) | b;
 }
 
-int get_byte ()
-{
-	unsigned char b;
-	buffered_read_byte(&b);
-    if (result==1)
+int get_byte() {
+    unsigned char b;
+    buffered_read_byte(&b);
+    if (result == 1)
         return b;
     else
         return 0;
 }
 
-unsigned int get_be32()
-{
+unsigned int get_be32() {
     unsigned int val;
     val = get_be16() << 16;
     val |= get_be16();
@@ -311,14 +312,13 @@ unsigned int get_be32()
 }
 
 
-static LONG get_pts(int c)
-{
+static LONG get_pts(int c) {
     LONG pts;
     int val;
 
     if (c < 0)
         c = get_byte();
-    pts = (LONG)((c >> 1) & 0x07) << 30;
+    pts = (LONG) ((c >> 1) & 0x07) << 30;
     val = get_be16();
     pts |= (LONG) (val >> 1) << 15;
     val = get_be16();
@@ -327,18 +327,16 @@ static LONG get_pts(int c)
 }
 
 static int find_next_start_code(int *size_ptr,
-                                unsigned int *header_state)
-{
+                                unsigned int *header_state) {
     unsigned int state, v;
     int val, n;
 
     state = *header_state;
     n = *size_ptr;
-    while (n > 0)
-    {
+    while (n > 0) {
         unsigned char cx;
         buffered_read_byte (&cx);
-        if (result!=1)
+        if (result != 1)
             break;
         v = cx;
         n--;
@@ -350,19 +348,17 @@ static int find_next_start_code(int *size_ptr,
         state = ((state << 8) | v) & 0xffffff;
     }
     val = -1;
-found:
+    found:
     *header_state = state;
     *size_ptr = n;
     return val;
 }
 
-void url_fskip (int length)
-{
-    buffered_seek (length);
+void url_fskip(int length) {
+    buffered_seek(length);
 }
 
-static long mpegps_psm_parse(void)
-{
+static long mpegps_psm_parse(void) {
     int psm_length, ps_info_length, es_map_length;
 
     psm_length = get_be16();
@@ -375,10 +371,9 @@ static long mpegps_psm_parse(void)
     es_map_length = get_be16();
 
     /* at least one es available? */
-    while (es_map_length >= 4)
-    {
+    while (es_map_length >= 4) {
         unsigned char type = (unsigned char) get_byte();
-        unsigned char es_id =(unsigned char) get_byte();
+        unsigned char es_id = (unsigned char) get_byte();
         unsigned int es_info_length = get_be16();
         /* remember mapping from stream id to stream type */
         psm_es_type[es_id] = type;
@@ -392,11 +387,10 @@ static long mpegps_psm_parse(void)
 
 
 static int mpegps_read_pes_header(int *pstart_code,
-                                  LONG *ppts, LONG *pdts)
-{
+                                  LONG *ppts, LONG *pdts) {
     int len, size, startcode, c, flags, header_len;
     LONG pts, dts;
-redo:
+    redo:
     /* next start code (should be immediately after) */
     header_state = 0xff;
     size = MAX_SYNC_SIZE;
@@ -409,31 +403,29 @@ redo:
     if (startcode == SYSTEM_HEADER_START_CODE)
         goto redo;
     if (startcode == PADDING_STREAM ||
-        startcode == PRIVATE_STREAM_2)
-    {
+        startcode == PRIVATE_STREAM_2) {
         /* skip them */
         len = get_be16();
         // url_fskip(len);
         goto redo;
     }
 
-    if (startcode == PROGRAM_STREAM_MAP)
-    {
+    if (startcode == PROGRAM_STREAM_MAP) {
         mpegps_psm_parse();
         goto redo;
     }
 
     /* find matching stream */
     if (!((startcode >= 0x1c0 && startcode <= 0x1df) ||
-        (startcode >= 0x1e0 && startcode <= 0x1ef) ||
-        (startcode == 0x1bd)))
+          (startcode >= 0x1e0 && startcode <= 0x1ef) ||
+          (startcode == 0x1bd)))
         goto redo;
 
     len = get_be16();
     pts = AV_NOPTS_VALUE;
     dts = AV_NOPTS_VALUE;
     /* stuffing */
-    for(;;) {
+    for (;;) {
         if (len < 1)
             goto redo;
         c = get_byte();
@@ -453,7 +445,7 @@ redo:
     if ((c & 0xf0) == 0x20) {
         if (len < 4)
             goto redo;
-        dts = pts = get_pts( c);
+        dts = pts = get_pts(c);
         len -= 4;
     } else if ((c & 0xf0) == 0x30) {
         if (len < 9)
@@ -480,9 +472,10 @@ redo:
                 goto redo;
             header_len -= 5;
             len -= 5;
-        } if ((flags & 0xc0) == 0xc0) {
-            pts = get_pts( -1);
-            dts = get_pts( -1);
+        }
+        if ((flags & 0xc0) == 0xc0) {
+            pts = get_pts(-1);
+            dts = get_pts(-1);
             if (header_len < 10)
                 goto redo;
             header_len -= 10;
@@ -493,12 +486,10 @@ redo:
             get_byte();
             header_len--;
         }
-    }
-    else if( c!= 0xf )
+    } else if (c != 0xf)
         goto redo;
 
-    if (startcode == PRIVATE_STREAM_1 /* && psm_es_type[startcode & 0xff] */)
-    {
+    if (startcode == PRIVATE_STREAM_1 /* && psm_es_type[startcode & 0xff] */) {
         if (len < 1)
             goto redo;
         startcode = get_byte();
@@ -520,11 +511,9 @@ redo:
     return len;
 }
 
-static int cc608_good_parity(const int *parity_table, unsigned int data)
-{
+static int cc608_good_parity(const int *parity_table, unsigned int data) {
     int ret = parity_table[data & 0xff] && parity_table[(data & 0xff00) >> 8];
-    if (!ret)
-    {
+    if (!ret) {
         /* VERBOSE(VB_VBI, QString("VBI: Bad parity in EIA-608 data (%1)")
         .arg(data,0,16)); */
     }
@@ -532,15 +521,13 @@ static int cc608_good_parity(const int *parity_table, unsigned int data)
 }
 
 
-void ProcessVBIDataPacket()
-{
+void ProcessVBIDataPacket() {
     static const unsigned int min_blank = 6;
-    LONG linemask      = 0;
+    LONG linemask = 0;
     const unsigned char *meat = av.data;
-	unsigned int i;
-    if (meat==NULL)
-    {
-        printf ("Warning: ProcessVBIDataPacket called with NULL data, ignoring.\n");
+    unsigned int i;
+    if (meat == NULL) {
+        printf("Warning: ProcessVBIDataPacket called with NULL data, ignoring.\n");
         return;
     }
 
@@ -548,88 +535,75 @@ void ProcessVBIDataPacket()
 
     // [i]tv0 means there is a linemask
     // [I]TV0 means there is no linemask and all lines are present
-    if ((meat[0]=='t') && (meat[1]=='v') && (meat[2] == '0'))
-    {
+    if ((meat[0] == 't') && (meat[1] == 'v') && (meat[2] == '0')) {
         /// TODO this is almost certainly not endian safe....
         memcpy(&linemask, meat + 3, 8);
         meat += 11;
-    }
-    else if ((meat[0]=='T') && (meat[1]=='V') && (meat[2] == '0'))
-    {
+    } else if ((meat[0] == 'T') && (meat[1] == 'V') && (meat[2] == '0')) {
         linemask = 0xffffffffffffffff;
         meat += 3;
-    }
-    else
-    {
+    } else {
         /*        VERBOSE(VB_VBI, LOC + QString("Unknown VBI data stream '%1%2%3'")
         .arg(QChar(buf[0])).arg(QChar(buf[1])).arg(QChar(buf[2]))); */
-        printf ("Unknown VBI data stream\n");
+        printf("Unknown VBI data stream\n");
         return;
     }
-    for (i = 0; i < 36; i++)
-    {
-		unsigned int line ;
+    for (i = 0; i < 36; i++) {
+        unsigned int line;
         unsigned int field;
         unsigned int id2;
 
         if (!((linemask >> i) & 0x1))
             continue;
 
-        line  = ((i < 18) ? i : i-18) + min_blank;
-        field = (i<18) ? 0 : 1;
+        line = ((i < 18) ? i : i - 18) + min_blank;
+        field = (i < 18) ? 0 : 1;
         id2 = *meat & 0xf;
 
-        switch (id2)
-        {
-        case VBI_TYPE_TELETEXT:
-            // SECAM lines  6-23
-            // PAL   lines  6-22
-            // NTSC  lines 10-21 (rare)
-            // ttd->Decode(buf+1, VBI_IVTV);
-            break;
-        case VBI_TYPE_CC:
-            // PAL   line 22 (rare)
-            // NTSC  line 21
-            if (21 == line)
-            {
-                int data = (meat[2] << 8) | meat[1];
-                if (cc608_good_parity(cc608_parity_table, data))
-                {
-                    if (field==0)
-                    {
-                        printdata (meat+1,2,0,0);
-                        c1count++;
+        switch (id2) {
+            case VBI_TYPE_TELETEXT:
+                // SECAM lines  6-23
+                // PAL   lines  6-22
+                // NTSC  lines 10-21 (rare)
+                // ttd->Decode(buf+1, VBI_IVTV);
+                break;
+            case VBI_TYPE_CC:
+                // PAL   line 22 (rare)
+                // NTSC  line 21
+                if (21 == line) {
+                    int data = (meat[2] << 8) | meat[1];
+                    if (cc608_good_parity(cc608_parity_table, data)) {
+                        if (field == 0) {
+                            printdata(meat + 1, 2, 0, 0);
+                            c1count++;
+                        } else {
+                            printdata(0, 0, meat + 1, 2);
+                            c2count++;
+                        }
                     }
-                    else
-                    {
-                        printdata (0,0,meat+1,2);
-                        c2count++;
-                    }
+                    // utc += 33367;
                 }
-                // utc += 33367;
-            }
-            break;
-        case VBI_TYPE_VPS: // Video Programming System
-            // PAL   line 16
-            // ccd608->DecodeVPS(buf+1); // a.k.a. PDC
-            break;
-        case VBI_TYPE_WSS: // Wide Screen Signal
-            // PAL   line 23
-            // NTSC  line 20
-            // ccd608->DecodeWSS(buf+1);
-            break;
+                break;
+            case VBI_TYPE_VPS: // Video Programming System
+                // PAL   line 16
+                // ccd608->DecodeVPS(buf+1); // a.k.a. PDC
+                break;
+            case VBI_TYPE_WSS: // Wide Screen Signal
+                // PAL   line 23
+                // NTSC  line 20
+                // ccd608->DecodeWSS(buf+1);
+                break;
         }
         meat += 43;
     }
     // lastccptsu = utc;
 }
 
-static int mpegps_read_packet(void)
-{
+static int mpegps_read_packet(void) {
     LONG pts, dts;
 
-    int len, startcode,  type, codec_id = 0, es_type;
-redo:
+    int len, startcode, type, codec_id = 0, es_type;
+    redo:
     len = mpegps_read_pes_header(&startcode, &pts, &dts);
     if (len < 0)
         return len;
@@ -643,139 +617,132 @@ redo:
     }
     */
     es_type = psm_es_type[startcode & 0xff];
-    if(es_type > 0){
-        if(es_type == STREAM_TYPE_VIDEO_MPEG1){
+    if (es_type > 0) {
+        if (es_type == STREAM_TYPE_VIDEO_MPEG1) {
             codec_id = CODEC_ID_MPEG2VIDEO;
             type = CODEC_TYPE_VIDEO;
-        } else if(es_type == STREAM_TYPE_VIDEO_MPEG2){
+        } else if (es_type == STREAM_TYPE_VIDEO_MPEG2) {
             codec_id = CODEC_ID_MPEG2VIDEO;
             type = CODEC_TYPE_VIDEO;
-        } else if(es_type == STREAM_TYPE_AUDIO_MPEG1 ||
-            es_type == STREAM_TYPE_AUDIO_MPEG2){
-                codec_id = CODEC_ID_MP3;
-                type = CODEC_TYPE_AUDIO;
-        } else if(es_type == STREAM_TYPE_AUDIO_AAC){
+        } else if (es_type == STREAM_TYPE_AUDIO_MPEG1 ||
+                   es_type == STREAM_TYPE_AUDIO_MPEG2) {
+            codec_id = CODEC_ID_MP3;
+            type = CODEC_TYPE_AUDIO;
+        } else if (es_type == STREAM_TYPE_AUDIO_AAC) {
             codec_id = CODEC_ID_AAC;
             type = CODEC_TYPE_AUDIO;
-        } else if(es_type == STREAM_TYPE_VIDEO_MPEG4){
+        } else if (es_type == STREAM_TYPE_VIDEO_MPEG4) {
             codec_id = CODEC_ID_MPEG4;
             type = CODEC_TYPE_VIDEO;
-        } else if(es_type == STREAM_TYPE_VIDEO_H264){
+        } else if (es_type == STREAM_TYPE_VIDEO_H264) {
             codec_id = CODEC_ID_H264;
             type = CODEC_TYPE_VIDEO;
-        } else if(es_type == STREAM_TYPE_AUDIO_AC3){
+        } else if (es_type == STREAM_TYPE_AUDIO_AC3) {
             codec_id = CODEC_ID_AC3;
             type = CODEC_TYPE_AUDIO;
         } else {
             goto skip;
         }
+    } else if (startcode >= 0x1e0 && startcode <= 0x1ef) {
+        static const unsigned char avs_seqh[4] = {0, 0, 1, 0xb0};
+        unsigned char buf[8];
+        buffered_read (buf, 8);
+        // get_buffer(&s->pb, buf, 8);
+        buffered_seek(-8);
+        if (!memcmp(buf, avs_seqh, 4) && (buf[6] != 0 || buf[7] != 1))
+            codec_id = CODEC_ID_CAVS;
+        else
+            codec_id = CODEC_ID_MPEG2VIDEO;
+        type = CODEC_TYPE_VIDEO;
+    } else if (startcode >= 0x1c0 && startcode <= 0x1df) {
+        type = CODEC_TYPE_AUDIO;
+        codec_id = CODEC_ID_MP2;
+    } else if (startcode >= 0x80 && startcode <= 0x87) {
+        type = CODEC_TYPE_AUDIO;
+        codec_id = CODEC_ID_AC3;
+    } else if (startcode >= 0x88 && startcode <= 0x9f) {
+        type = CODEC_TYPE_AUDIO;
+        codec_id = CODEC_ID_DTS;
+    } else if (startcode >= 0xa0 && startcode <= 0xbf) {
+        type = CODEC_TYPE_AUDIO;
+        codec_id = CODEC_ID_PCM_S16BE;
+    } else if (startcode >= 0x20 && startcode <= 0x3f) {
+        type = CODEC_TYPE_SUBTITLE;
+        codec_id = CODEC_ID_DVD_SUBTITLE;
+    } else if (startcode == 0x69 || startcode == 0x49) {
+        type = CODEC_TYPE_DATA;
+        codec_id = CODEC_ID_MPEG2VBI;
+    } else {
+        skip:
+        // skip packet
+        url_fskip(len);
+        goto redo;
     }
-    else
-        if (startcode >= 0x1e0 && startcode <= 0x1ef)
-        {
-            static const unsigned char avs_seqh[4] = { 0, 0, 1, 0xb0 };
-            unsigned char buf[8];
-            buffered_read (buf,8);
-            // get_buffer(&s->pb, buf, 8);
-            buffered_seek (-8);
-            if(!memcmp(buf, avs_seqh, 4) && (buf[6] != 0 || buf[7] != 1))
-                codec_id = CODEC_ID_CAVS;
-            else
-                codec_id = CODEC_ID_MPEG2VIDEO;
-            type = CODEC_TYPE_VIDEO;
-        } else if (startcode >= 0x1c0 && startcode <= 0x1df) {
-            type = CODEC_TYPE_AUDIO;
-            codec_id = CODEC_ID_MP2;
-        } else if (startcode >= 0x80 && startcode <= 0x87) {
-            type = CODEC_TYPE_AUDIO;
-            codec_id = CODEC_ID_AC3;
-        } else if (startcode >= 0x88 && startcode <= 0x9f) {
-            type = CODEC_TYPE_AUDIO;
-            codec_id = CODEC_ID_DTS;
-        } else if (startcode >= 0xa0 && startcode <= 0xbf) {
-            type = CODEC_TYPE_AUDIO;
-            codec_id = CODEC_ID_PCM_S16BE;
-        } else if (startcode >= 0x20 && startcode <= 0x3f) {
-            type = CODEC_TYPE_SUBTITLE;
-            codec_id = CODEC_ID_DVD_SUBTITLE;
-        } else if (startcode == 0x69 || startcode == 0x49) {
-            type = CODEC_TYPE_DATA;
-            codec_id = CODEC_ID_MPEG2VBI;
-        } else {
-skip:
-            // skip packet
-            url_fskip(len);
-            goto redo;
-        }
-        // no stream found: add a new stream
-        /* st = av_new_stream(s, startcode);
-        if (!st)
-        goto skip;
-        st->codec->codec_type = type;
-        st->codec->codec_id = codec_id;
-        if (codec_id != CODEC_ID_PCM_S16BE)
-        st->need_parsing = 1;
+    // no stream found: add a new stream
+    /* st = av_new_stream(s, startcode);
+    if (!st)
+    goto skip;
+    st->codec->codec_type = type;
+    st->codec->codec_id = codec_id;
+    if (codec_id != CODEC_ID_PCM_S16BE)
+    st->need_parsing = 1;
 
-        // notify the callback of the change in streams
-        if (s->streams_changed) {
-        s->streams_changed(s->stream_change_data);
-        }
-        */
-found:
-        /* if(st->discard >= AVDISCARD_ALL)
-        goto skip; */
-        if (startcode >= 0xa0 && startcode <= 0xbf)
-        {
+    // notify the callback of the change in streams
+    if (s->streams_changed) {
+    s->streams_changed(s->stream_change_data);
+    }
+    */
+    found:
+    /* if(st->discard >= AVDISCARD_ALL)
+    goto skip; */
+    if (startcode >= 0xa0 && startcode <= 0xbf) {
 
-            // for LPCM, we just skip the header and consider it is raw
-            // audio data
-            if (len <= 3)
-                goto skip;
-            get_byte(); // emphasis (1), muse(1), reserved(1), frame number(5)
-            get_byte(); // quant (2), freq(2), reserved(1), channels(3)
-            get_byte(); // dynamic range control (0x80 = off)
-            len -= 3;
-            //freq = (b1 >> 4) & 3;
-            //st->codec->sample_rate = lpcm_freq_tab[freq];
-            //st->codec->channels = 1 + (b1 & 7);
-            //st->codec->bit_rate = st->codec->channels * st->codec->sample_rate * 2;
+        // for LPCM, we just skip the header and consider it is raw
+        // audio data
+        if (len <= 3)
+            goto skip;
+        get_byte(); // emphasis (1), muse(1), reserved(1), frame number(5)
+        get_byte(); // quant (2), freq(2), reserved(1), channels(3)
+        get_byte(); // dynamic range control (0x80 = off)
+        len -= 3;
+        //freq = (b1 >> 4) & 3;
+        //st->codec->sample_rate = lpcm_freq_tab[freq];
+        //st->codec->channels = 1 + (b1 & 7);
+        //st->codec->bit_rate = st->codec->channels * st->codec->sample_rate * 2;
 
-        }
-        // av_new_packet(pkt, len);
-        /*
-            printf ("Paquete de %lu bytes, codec_id=%d, type=%d\n",(unsigned long) len,
-            codec_id, type);
-        */
-        //get_buffer(fh, pkt->data, pkt->size);
-        av.size=len;
-        av.data=(unsigned char *) realloc (av.data,av.size);
-        if (av.data==NULL)
-        {
-            printf ("\rNot enough memory, realloc() failed. Giving up.\n");
-            exit (-3);
-        }
-        av.codec_id=codec_id;
-        av.type=type;
-        buffered_read (av.data,av.size);
-        // LSEEK (fh,pkt->size,SEEK_CUR);
-        av.pts = pts;
-        av.dts = dts;
-        // pkt->stream_index = st->index;
+    }
+    // av_new_packet(pkt, len);
+    /*
+        printf ("Paquete de %lu bytes, codec_id=%d, type=%d\n",(unsigned long) len,
+        codec_id, type);
+    */
+    //get_buffer(fh, pkt->data, pkt->size);
+    av.size = len;
+    av.data = (unsigned char *) realloc(av.data, av.size);
+    if (av.data == NULL) {
+        printf("\rNot enough memory, realloc() failed. Giving up.\n");
+        exit(-3);
+    }
+    av.codec_id = codec_id;
+    av.type = type;
+    buffered_read (av.data, av.size);
+    // LSEEK (fh,pkt->size,SEEK_CUR);
+    av.pts = pts;
+    av.dts = dts;
+    // pkt->stream_index = st->index;
 
 #if 0
-        av_log(s, AV_LOG_DEBUG, "%d: pts=%0.3f dts=%0.3f size=%d\n",
-            pkt->stream_index, pkt->pts / 90000.0, pkt->dts / 90000.0, pkt->size);
+    av_log(s, AV_LOG_DEBUG, "%d: pts=%0.3f dts=%0.3f size=%d\n",
+        pkt->stream_index, pkt->pts / 90000.0, pkt->dts / 90000.0, pkt->size);
 #endif
 
-        return 0;
+    return 0;
 }
 
-static int cc608_parity(unsigned int byte)
-{
-    int ones = 0,i;
+static int cc608_parity(unsigned int byte) {
+    int ones = 0, i;
 
-    for (i = 0; i < 7; i++)
-    {
+    for (i = 0; i < 7; i++) {
         if (byte & (1 << i))
             ones++;
     }
@@ -783,12 +750,10 @@ static int cc608_parity(unsigned int byte)
     return ones & 1;
 }
 
-static void cc608_build_parity_table(int *parity_table)
-{
+static void cc608_build_parity_table(int *parity_table) {
     unsigned int byte;
     int parity_v;
-    for (byte = 0; byte <= 127; byte++)
-    {
+    for (byte = 0; byte <= 127; byte++) {
         parity_v = cc608_parity(byte);
         /* CC uses odd parity (i.e., # of 1's in byte is odd.) */
         parity_table[byte] = parity_v;
@@ -796,73 +761,63 @@ static void cc608_build_parity_table(int *parity_table)
     }
 }
 
-void build_parity_table (void)
-{
-	cc608_build_parity_table(cc608_parity_table);
+void build_parity_table(void) {
+    cc608_build_parity_table(cc608_parity_table);
 }
 
-void myth_loop(void)
-{
+void myth_loop(void) {
     int rc;
-	int has_vbi=0;
-	unsigned char *desp ;
-	LONG saved;
-    av.data=NULL;
+    int has_vbi = 0;
+    unsigned char *desp;
+    LONG saved;
+    av.data = NULL;
     buffer_input = 1;
-    if (init_file_buffer())
-    {
-        printf ("Not enough memory.\n");
-        exit (-3);
+    if (init_file_buffer()) {
+        printf("Not enough memory.\n");
+        exit(-3);
     }
-    desp=(unsigned char *) malloc (65536);
-    saved=0;
+    desp = (unsigned char *) malloc(65536);
+    saved = 0;
 
-    while (!processed_enough && (rc=mpegps_read_packet ())==0)
-    {
-        if (av.codec_id==CODEC_ID_MPEG2VBI && av.type==CODEC_TYPE_DATA)
-        {
-			if (!has_vbi)
-			{
-				printf ("\rDetected VBI data, disabling user-data packet analysis (not needed).\n");
-				has_vbi=1;
-			}
-            ProcessVBIDataPacket ();
-        }
-		/* This needs a lot more testing */
-		if (av.codec_id==CODEC_ID_MPEG2VIDEO && av.type==CODEC_TYPE_VIDEO && !has_vbi)
-		{
-			LONG length = saved+av.size;
-			LONG used;
-            if (length>65536) // Result of a lazy programmer. Make something decent.
-            {
-				printf ("Not enough memory. Please report this: 65536 bytes is not enough!");
-                exit (-500);
+    while (!processed_enough && (rc = mpegps_read_packet()) == 0) {
+        if (av.codec_id == CODEC_ID_MPEG2VBI && av.type == CODEC_TYPE_DATA) {
+            if (!has_vbi) {
+                printf("\rDetected VBI data, disabling user-data packet analysis (not needed).\n");
+                has_vbi = 1;
             }
-			if (av.pts!=AV_NOPTS_VALUE)
-			{
-				current_pts=av.pts;
-				if (pts_set==0)
-					pts_set=1;
-			}
-            memcpy (desp+saved,av.data,av.size);
-            used = process_block(desp,length);
-            memmove (desp,desp+used,(unsigned int) (length-used));
-            saved=length-used;
-		}
-
-        if (inputsize>0)
-        {
-			int cur_sec;
-            LONG at=LSEEK (in, 0, SEEK_CUR);
-            int progress = (int) (((at>>8)*100)/(inputsize>>8));
-            if (last_reported_progress != progress)
+            ProcessVBIDataPacket();
+        }
+        /* This needs a lot more testing */
+        if (av.codec_id == CODEC_ID_MPEG2VIDEO && av.type == CODEC_TYPE_VIDEO && !has_vbi) {
+            LONG length = saved + av.size;
+            LONG used;
+            if (length > 65536) // Result of a lazy programmer. Make something decent.
             {
-                printf ("\r%3d%%",progress);
+                printf("Not enough memory. Please report this: 65536 bytes is not enough!");
+                exit(-500);
+            }
+            if (av.pts != AV_NOPTS_VALUE) {
+                current_pts = av.pts;
+                if (pts_set == 0)
+                    pts_set = 1;
+            }
+            memcpy(desp + saved, av.data, av.size);
+            used = process_block(desp, length);
+            memmove(desp, desp + used, (unsigned int) (length - used));
+            saved = length - used;
+        }
+
+        if (inputsize > 0) {
+            int cur_sec;
+            LONG at = LSEEK(in, 0, SEEK_CUR);
+            int progress = (int) (((at >> 8) * 100) / (inputsize >> 8));
+            if (last_reported_progress != progress) {
+                printf("\r%3d%%", progress);
                 cur_sec = (int) ((c1count + c1count_total) / 29.97);
-                printf ("  |  %02d:%02d", cur_sec/60, cur_sec%60);
+                printf("  |  %02d:%02d", cur_sec / 60, cur_sec % 60);
                 last_reported_progress = progress;
             }
         }
     }
-    free (av.data);
+    free(av.data);
 }

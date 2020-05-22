@@ -1,24 +1,27 @@
 #ifndef __608_H__
 struct s_write;
 
-void process608 (const unsigned char *data, int length, struct s_write *wb);
-void get_char_in_latin_1 (unsigned char *buffer, unsigned char c);
-void get_char_in_unicode (unsigned char *buffer, unsigned char c);
-int get_char_in_utf_8 (unsigned char *buffer, unsigned char c);
-unsigned char cctolower (unsigned char c);
-unsigned char cctoupper (unsigned char c);
+void process608(const unsigned char *data, int length, struct s_write *wb);
 
-enum cc_modes
-{
+void get_char_in_latin_1(unsigned char *buffer, unsigned char c);
+
+void get_char_in_unicode(unsigned char *buffer, unsigned char c);
+
+int get_char_in_utf_8(unsigned char *buffer, unsigned char c);
+
+unsigned char cctolower(unsigned char c);
+
+unsigned char cctoupper(unsigned char c);
+
+enum cc_modes {
     MODE_POPUP = 0,
     MODE_ROLLUP_2 = 1,
     MODE_ROLLUP_3 = 2,
     MODE_ROLLUP_4 = 3,
-	MODE_TEXT = 4
+    MODE_TEXT = 4
 };
 
-enum color_code
-{
+enum color_code {
     COL_WHITE = 0,
     COL_GREEN = 1,
     COL_BLUE = 2,
@@ -26,12 +29,11 @@ enum color_code
     COL_RED = 4,
     COL_YELLOW = 5,
     COL_MAGENTA = 6,
-	COL_USERDEFINED = 7
+    COL_USERDEFINED = 7
 };
 
 
-enum font_bits
-{
+enum font_bits {
     FONT_REGULAR = 0,
     FONT_ITALICS = 1,
     FONT_UNDERLINED = 2,
@@ -41,23 +43,22 @@ enum font_bits
 
 typedef struct eia608_screen // A CC buffer
 {
-    unsigned char characters[15][33]; 
+    unsigned char characters[15][33];
     unsigned char colors[15][33];
     unsigned char fonts[15][33]; // Extra char at the end for a 0
     int row_used[15]; // Any data in row?
     int empty; // Buffer completely empty?    	
 } eia608_screen;
 
-struct eia608
-{
+struct eia608 {
     struct eia608_screen buffer1;
-    eia608_screen buffer2;  
+    eia608_screen buffer2;
     int cursor_row, cursor_column;
     int visible_buffer;
     int srt_counter; // Number of subs currently written
-	int screenfuls_counter; // Number of meaningful screenfuls written
+    int screenfuls_counter; // Number of meaningful screenfuls written
     unsigned current_visible_start_cc; // At what time did the current visible buffer became so?
-    int  mode; //cc_modes
+    int mode; //cc_modes
     unsigned char last_c1, last_c2;
     int channel; // Currently selected channel
     unsigned char color; // Color we are currently using to write
@@ -66,9 +67,7 @@ struct eia608
 };
 
 
-
-enum command_code
-{
+enum command_code {
     COM_UNKNOWN = 0,
     COM_ERASEDISPLAYEDMEMORY = 1,
     COM_RESUMECAPTIONLOADING = 2,
@@ -82,7 +81,7 @@ enum command_code
     COM_CARRIAGERETURN = 10,
     COM_ERASENONDISPLAYEDMEMORY = 11,
     COM_BACKSPACE = 12,
-	COM_RESUMETEXTDISPLAY = 13
+    COM_RESUMETEXTDISPLAY = 13
 };
 
 

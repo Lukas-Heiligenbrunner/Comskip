@@ -17,6 +17,7 @@
  */
 
 #include <windows.h>
+
 #ifdef HARDWARE_DECODE
 #ifdef _WIN32_WINNT
 #undef _WIN32_WINNT

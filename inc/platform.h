@@ -3,10 +3,12 @@
 
 #ifndef _WIN32
 #define _BSD_SOURCE
+
 #include <unistd.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <ctype.h>
+
 #else
 #undef WINVER
 #define WINVER _WIN32_WINNT_WIN7
@@ -17,7 +19,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <memory.h>
-#include <time.h>										// needed for play_nice routines
+#include <time.h>                                        // needed for play_nice routines
 #include <math.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -80,9 +82,11 @@ typedef unsigned __int64 uint64_t;
 
 #include <time.h>
 #else
+
 #include <stdint.h>
 #include <pthread.h>
 #include <time.h>
+
 #endif
 
 #ifdef _WIN32
@@ -97,9 +101,11 @@ typedef dispatch_semaphore_t sema_t;
 #define sema_wait(s) dispatch_semaphore_wait(s, DISPATCH_TIME_FOREVER)
 #define sema_post(s) dispatch_semaphore_signal(s)
 #else
+
 #include <semaphore.h>
+
 typedef sem_t sema_t;
-#define sema_init(s,v) sem_init(&s,0,v)
+#define sema_init(s, v) sem_init(&s,0,v)
 #define sema_wait(s) sem_wait(&s)
 #define sema_post(s) sem_post(&s)
 #endif
@@ -111,8 +117,8 @@ typedef struct _stati64* stath;
 typedef int fileh;
 typedef struct _stati64* stath;
 #else
-typedef FILE* fileh;
-typedef struct stat* stath;
+typedef FILE *fileh;
+typedef struct stat *stath;
 #endif
 
 #ifdef _WIN32
@@ -121,9 +127,11 @@ typedef struct stat* stath;
 #define PATH_SEPARATOR '/'
 #endif
 
-int mystat(char * f, stath s);
-fileh myfopen(const char * f, char * m);
-int myremove(char * f);
+int mystat(char *f, stath s);
+
+fileh myfopen(const char *f, char *m);
+
+int myremove(char *f);
 
 #ifndef _WIN32
 #define _read read
@@ -133,9 +141,13 @@ int myremove(char * f);
 #define _flushall() fflush(NULL)
 #define _getcwd(x, y) getcwd(x, y)
 #define Sleep(x) usleep((x)*1000L)
-int min(int i,int j);
-int max(int i,int j);
+
+int min(int i, int j);
+
+int max(int i, int j);
+
 char *_strupr(char *string);
+
 #endif
 
 #if defined(_WIN32) && !defined(__MINGW32__) && !defined(__MINGW64__)

@@ -1,23 +1,23 @@
 #if defined(__GNUC__)
 /* used for inline assembly stuff with GCC syntax */
-  #define HAVE_MMX 1
-  #define ENABLE_MMX 1
-  #define HAVE_SSE 1
-  #define ENABLE_SSE 1
-  #define HAVE_SSSE3 1
-  #define ENABLE_SSSE3 1
+#define HAVE_MMX 1
+#define ENABLE_MMX 1
+#define HAVE_SSE 1
+#define ENABLE_SSE 1
+#define HAVE_SSSE3 1
+#define ENABLE_SSSE3 1
 
-  #define ARCH_X86 1
+#define ARCH_X86 1
 
-  #ifdef ARCH_X86_64
-    #define HAVE_FAST_64BIT 1
-  #else
-    #define ARCH_X86_32 1
-  #endif
+#ifdef ARCH_X86_64
+#define HAVE_FAST_64BIT 1
 #else
-	#define ENABLE_MMX 0
-	#define ENABLE_SSE 0
-	#define ENABLE_SSSE3 0
+#define ARCH_X86_32 1
+#endif
+#else
+#define ENABLE_MMX 0
+#define ENABLE_SSE 0
+#define ENABLE_SSSE3 0
 #endif
 
 
@@ -57,7 +57,7 @@
 #define ENABLE_SMALL 0
 
 #define ENABLE_GRAY 1
-	
+
 
 #define CONFIG_AASC_DECODER 1
 #define ENABLE_AASC_DECODER 1
@@ -350,7 +350,7 @@
 
 
 #ifndef __GNUC__
-  #define EMULATE_FAST_INT
+#define EMULATE_FAST_INT
 #endif
 
 #define HAVE_6REGS 1
@@ -358,8 +358,8 @@
 #define HAVE_EBX_AVAILABLE 1
 
 #ifdef ARCH_X86_64
-	#define ENABLE_CMOV 1
-	#define HAVE_CMOV 1
-	#define ENABLE_FAST_CMOV 1
-	#define HAVE_FAST_CMOV 1
+#define ENABLE_CMOV 1
+#define HAVE_CMOV 1
+#define ENABLE_FAST_CMOV 1
+#define HAVE_FAST_CMOV 1
 #endif

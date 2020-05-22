@@ -41,18 +41,16 @@ typedef signed long LONG;
 #define MAX_CLOSED_CAPTION_DATA_PER_PICTURE 32
 #define TS_PACKET_PAYLOAD_LENGTH     184     // From specs
 #define SUBLINESIZE 2048 // Max. length of a .srt line - TODO: Get rid of this
-#define STARTBYTESLENGTH	(1024*1024)
+#define STARTBYTESLENGTH    (1024*1024)
 
-struct boundary_time
-{
-	int hh,mm,ss;
-	LONG time_in_ms;
-	LONG time_in_ccblocks;
-	int set;
+struct boundary_time {
+    int hh, mm, ss;
+    LONG time_in_ms;
+    LONG time_in_ccblocks;
+    int set;
 };
 
-struct s_write
-{
+struct s_write {
     FILE *fh;
     char *filename;
     unsigned char *buffer;
@@ -60,43 +58,39 @@ struct s_write
     struct eia608 *data608;
 };
 
-enum output_format
-{
-    OF_RAW	= 0,
-    OF_SRT	= 1,
+enum output_format {
+    OF_RAW = 0,
+    OF_SRT = 1,
     OF_SAMI = 2
 };
 
-enum encoding_type
-{
+enum encoding_type {
     ENC_UNICODE = 0,
     ENC_LATIN_1 = 1,
     ENC_UTF_8 = 2
-} ;
+};
 
-enum frame_type
-{
-	RESET_OR_UNKNOWN = 0,
+enum frame_type {
+    RESET_OR_UNKNOWN = 0,
     I_FRAME = 1,
     P_FRAME = 2,
     B_FRAME = 3
 };
 
-struct gop_time_code
-{
-  int drop_frame_flag;
-  int time_code_hours;
-  int time_code_minutes;
-  int marker_bit;
-  int time_code_seconds;
-  int time_code_pictures;
-  int inited;
-  LONG ccblocks;
+struct gop_time_code {
+    int drop_frame_flag;
+    int time_code_hours;
+    int time_code_minutes;
+    int marker_bit;
+    int time_code_seconds;
+    int time_code_pictures;
+    int inited;
+    LONG ccblocks;
 };
 
 extern struct gop_time_code gop_time, first_gop_time, printed_gop;
 extern int gop_rollover;
-extern LONG min_pts, max_pts, last_pts,current_pts;
+extern LONG min_pts, max_pts, last_pts, current_pts;
 extern const char *framerates_types[16];
 extern int ts_mode;
 extern unsigned char *fbuffer;
@@ -110,7 +104,7 @@ extern unsigned char *pesheaderbuf;
 extern int pts_set; //0 = No, 1 = Just received but not an I-Frame yes, 2 = Ready
 extern unsigned last_sync_tenth; // Last tenth of a second with perfect timing
 extern unsigned c1count, c2count; // Number of CC 2-byte blocks written
-                                // in this continuous chuck
+// in this continuous chuck
 extern unsigned c1global, c2global;
 extern unsigned c1count_total, c2count_total;
 #define MPEG_CLOCK_FREQ 90000 // This is part of the standard
@@ -120,7 +114,7 @@ extern unsigned char ptsdata[5]; // Original 5 bytes the MPEG clock came from
 extern unsigned char lastptsdata[5]; // Original 5 bytes the previous MPEG clock came from
 extern unsigned total_frames_count;
 
-extern LONG buffered_read_opt (unsigned char *buffer, unsigned int bytes);
+extern LONG buffered_read_opt(unsigned char *buffer, unsigned int bytes);
 
 extern unsigned char *filebuffer;
 extern LONG filebuffer_start; // Position of buffer start relative to file
@@ -139,7 +133,7 @@ extern int bytesinbuffer; // Number of bytes we actually have on buffer
     result=bytes; \
 } else result=buffered_read_opt (NULL,bytes);
 
-#define buffered_read(buffer,bytes) if (bytes<=bytesinbuffer-filebuffer_pos) { \
+#define buffered_read(buffer, bytes) if (bytes<=bytesinbuffer-filebuffer_pos) { \
     if (buffer!=NULL) memcpy (buffer,filebuffer+filebuffer_pos,bytes); \
     filebuffer_pos+=bytes; \
     result=bytes; \
@@ -174,7 +168,7 @@ extern int stat_replay5000headers;
 extern int stat_replay4000headers;
 extern int stat_dishheaders;
 extern int stat_hdtv;
-extern int autopad ;
+extern int autopad;
 extern int gop_pad;
 extern int ff_cleanup;
 extern int ts_mode;
@@ -185,7 +179,7 @@ extern int extract;
 extern int cc_stats[4];
 extern LONG inputsize;
 extern int cc_channel;
-extern int encoding ; //encoding_type
+extern int encoding; //encoding_type
 extern int direct_rollup;
 extern LONG subs_delay;
 extern struct boundary_time extraction_start, extraction_end;
@@ -196,22 +190,36 @@ extern unsigned char usercolor_rgb[8];
 extern int default_color; //color_code
 extern int sentence_cap;
 
-void dump (unsigned char *start, int l);
-void printdata (const unsigned char *data1, int length1,const unsigned char *data2, int length2);
+void dump(unsigned char *start, int l);
+
+void printdata(const unsigned char *data1, int length1, const unsigned char *data2, int length2);
+
 // void flush_cc_buffers (void);
 int init_file_buffer(void);
-void init_eia608 (struct eia608 *data);
-unsigned totalblockswritten_thisfile (void);
-int too_many_blocks ();
-unsigned encode_line (unsigned char *buffer, unsigned char *text);
+
+void init_eia608(struct eia608 *data);
+
+unsigned totalblockswritten_thisfile(void);
+
+int too_many_blocks();
+
+unsigned encode_line(unsigned char *buffer, unsigned char *text);
+
 // LONG buffered_read (unsigned char *buffer, unsigned int bytes);
-void buffered_seek (int offset);
-void write_subtitle_file_header (struct s_write *wb);
-void write_subtitle_file_footer (struct s_write *wb);
+void buffered_seek(int offset);
+
+void write_subtitle_file_header(struct s_write *wb);
+
+void write_subtitle_file_footer(struct s_write *wb);
+
 void general_loop(void);
+
 void myth_loop(void);
-void raw_loop (void);
-void ts_loop (FILE *in_file);
+
+void raw_loop(void);
+
+void ts_loop(FILE *in_file);
+
 extern void build_parity_table(void);
 
 extern const unsigned char BROADCAST_HEADER[];
@@ -222,9 +230,9 @@ extern const unsigned char lc3[];
 extern const unsigned char lc4[];
 extern const unsigned char lc5[];
 extern const unsigned char lc6[];
-extern unsigned char captions_buffer_1[MAX_CLOSED_CAPTION_DATA_PER_PICTURE*2];
+extern unsigned char captions_buffer_1[MAX_CLOSED_CAPTION_DATA_PER_PICTURE * 2];
 extern unsigned int used_caption_buffer_1;
-extern unsigned char captions_buffer_2[MAX_CLOSED_CAPTION_DATA_PER_PICTURE*2];
+extern unsigned char captions_buffer_2[MAX_CLOSED_CAPTION_DATA_PER_PICTURE * 2];
 extern unsigned int used_caption_buffer_2;
 extern int last_reported_progress;
 extern int buffer_input;
