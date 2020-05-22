@@ -13,9 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-#include "platform.h"
-#include "vo.h"
+#include "../inc/platform.h"
+#include "../inc/vo.h"
 #include <argtable2.h>
+
+#define PACKAGE_STRING 1.0
+#define PROCESS_CC "DONATOR"
 
 
 #include <libavformat/avformat.h>
@@ -31,7 +34,7 @@
 #include <fftools/ffmpeg.h>
 #endif
 
-#include "comskip.h"
+#include "../inc/comskip.h"
 
 
 // Define detection methods

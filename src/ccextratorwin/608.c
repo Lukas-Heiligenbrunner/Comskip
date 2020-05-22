@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "608.h"
-#include "ccextractor.h"
+#include "../../inc/ccextratorwin/608.h"
+#include "../../inc/ccextratorwin/ccextractor.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>

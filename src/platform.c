@@ -1,4 +1,4 @@
-#include "platform.h"
+#include "../inc/platform.h"
 
 #if defined(_WIN32)
 BOOL AnsiToUnicode16(const char *in_Src, WCHAR *out_Dst, INT in_MaxLen)

@@ -1,8 +1,8 @@
 /* This code comes from MythTV.
 For now, integration with ccextractor is a quick hack. It could get better with time. */
-#include "../platform.h"
-#include "ccextractor.h"
-#include "608.h"
+#include "../../inc/platform.h"
+#include "../../inc/ccextratorwin/ccextractor.h"
+#include "../../inc/ccextratorwin/608.h"
 #ifdef _WIN32
 #include <io.h>
 #else

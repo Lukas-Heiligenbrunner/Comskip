@@ -7,7 +7,7 @@
  * no need for double-checking.
  */
 
-#include "win32_pthread.h"
+#include "../inc/win32_pthread.h"
 
 int err_win_to_posix(DWORD winerr)
 {

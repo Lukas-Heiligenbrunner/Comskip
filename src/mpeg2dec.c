@@ -21,9 +21,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "platform.h"
-#include "vo.h"
-#include "comskip.h"
+#include "../inc/platform.h"
+#include "../inc/vo.h"
+#include "../inc/comskip.h"
+#include <math.h>
 
 #ifdef HAVE_SDL
 #include <SDL.h>
@@ -42,6 +43,7 @@ double test_pts = 0.0;
 #include <libavutil/avutil.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/samplefmt.h>
+#include <expat_config.h>
 
 #ifdef HARDWARE_DECODE
 #include <fftools/ffmpeg.h>
@@ -161,7 +163,7 @@ int64_t pev_best_effort_timestamp = 0;
 
 int video_stream_index = -1;
 int audio_stream_index = -1;
-int width, height;
+//int width, height;
 int have_frame_rate ;
 int stream_index;
 
@@ -175,7 +177,7 @@ int64_t best_effort_timestamp;
 
 
 //#include "mpeg2convert.h"
-#include "comskip.h"
+#include "../inc/comskip.h"
 
 extern int coding_type;
 extern int audio_channels;

@@ -9,15 +9,15 @@ CCExtract.gpl that helped
 John Bell- Samples, code.
 License: GPL 2.0
 */
-#include "../platform.h"
+#include "../../inc/platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
-#include "ccextractor.h"
-#include "608.h"
+#include "../../inc/ccextratorwin/ccextractor.h"
+#include "../../inc/ccextratorwin/608.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/types.h>
