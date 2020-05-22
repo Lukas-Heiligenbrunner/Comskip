@@ -23,7 +23,6 @@ SET(SOURCES
         src/mpeg2dec.c
         src/platform.c
         inc/platform.h
-        src/video_out_dx.c inc/vo.h
         src/ccextratorwin/608.c
         inc/ccextratorwin/608.h
         src/ccextratorwin/ccextractor.c
