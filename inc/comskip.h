@@ -8,3 +8,5 @@
 
 #define MAXWIDTH    4000
 #define MAXHEIGHT    2400
+
+void searchCom(char* videoname);

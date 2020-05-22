@@ -64,20 +64,6 @@ extern int use_vdpau;
 extern int use_dxva2;
 int av_log_level = AV_LOG_INFO;
 
-
-#define SDL_AUDIO_BUFFER_SIZE 1024
-#define MAX_AUDIOQ_SIZE (5 * 16 * 1024)
-#define MAX_VIDEOQ_SIZE (5 * 256 * 1024)
-#define AV_SYNC_THRESHOLD 0.01
-#define AV_NOSYNC_THRESHOLD 10.0
-#define SAMPLE_CORRECTION_PERCENT_MAX 30
-#define AUDIO_DIFF_AVG_NB 10
-#define FF_ALLOC_EVENT   (SDL_USEREVENT)
-#define FF_REFRESH_EVENT (SDL_USEREVENT + 1)
-#define FF_QUIT_EVENT (SDL_USEREVENT + 2)
-#define VIDEO_PICTURE_QUEUE_SIZE 1
-#define DEFAULT_AV_SYNC_TYPE AV_SYNC_ADUIO_MASTER
-
 typedef struct VideoPicture {
     int width, height; /* source height & width */
     int allocated;
@@ -99,26 +85,11 @@ typedef struct VideoState {
     double audio_clock;
     AVStream *audio_st;
     AVStream *subtitle_st;
-
-    //DECLARE_ALIGNED(16, uint8_t, audio_buf[(AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2]);
-    unsigned int audio_buf_size;
-    unsigned int audio_buf_index;
     AVPacket audio_pkt;
     AVPacket audio_pkt_temp;
-//  uint8_t         *audio_pkt_data;
-//  int             audio_pkt_size;
-    int audio_hw_buf_size;
-    double audio_diff_cum; /* used for AV difference average computation */
-    double audio_diff_avg_coef;
-    double audio_diff_threshold;
-    int audio_diff_avg_count;
-    double frame_timer;
-    double frame_last_pts;
-    double frame_last_delay;
+
     double video_clock; ///<pts of last decoded frame / predicted pts of next decoded frame
     double video_clock_submitted;
-    double video_current_pts; ///<current displayed pts (different from video_clock if frame fifos are used)
-    int64_t video_current_pts_time;  ///<time (av_gettime) at which we updated video_current_pts - used to have running video pts
     AVStream *video_st;
     AVFrame *pFrame;
     char filename[1024];
@@ -133,46 +104,25 @@ VideoState *is;
 
 AVDictionary *myoptions = NULL;
 
-enum {
-    AV_SYNC_AUDIO_MASTER,
-    AV_SYNC_VIDEO_MASTER,
-    AV_SYNC_EXTERNAL_MASTER,
-};
-
 
 /* Since we only have one decoding thread, the Big Struct
    can be global in case we need it. */
 VideoState *global_video_state;
-AVPacket flush_pkt;
 
 
 int64_t pev_best_effort_timestamp = 0;
 
-
-int video_stream_index = -1;
-int audio_stream_index = -1;
-//int width, height;
-int have_frame_rate;
 int stream_index;
 
 
 int64_t best_effort_timestamp;
 
 
-#define USE_ASF 1
-
-
-//#include "mpeg2convert.h"
-
-
-extern int coding_type;
 extern int audio_channels;
 
 void InitComSkip(void);
 
 void BuildCommListAsYouGo(void);
-
-void ReviewResult(void);
 
 int video_packet_process(VideoState *is, AVPacket *packet);
 
@@ -184,30 +134,12 @@ static FILE *timing_file = 0;
 extern int lastFrameCommCalculated;
 
 extern int thread_count;
-int is_AC3;
-int AC3_rate;
-int AC3_mode;
 int is_h264 = 0;
-int is_AAC = 0;
-extern unsigned int AC3_sampling_rate; //AC3
-extern int AC3_byterate;
 int demux_pid = 0;
-int demux_asf = 0;
-int last_pid;
-#define PIDS    100
-#define PID_MASK    0x1fff
-int pids[PIDS];
-int pid_type[PIDS];
-int pid_pcr[PIDS];
-int pid_pid[PIDS];
-int top_pid_count[PID_MASK + 1];
-int top_pid_pid;
 int pid;
 int selected_video_pid = 0;
 int selected_audio_pid = 0;
 int selected_subtitle_pid = 0;
-int selection_restart_count = 0;
-int found_pids = 0;
 
 int64_t pts;
 double initial_pts = 0.0;
@@ -221,25 +153,12 @@ int initial_apts_set = 0;
 int do_audio_repair = 1;
 extern int timeline_repair;
 
-//int bitrate;
-int muxrate, byterate = 10000;
-//#define PTS_FRAME (double)(1.0 / get_fps())
-//#define PTS_FRAME (int) (90000 / get_fps())
-//#define SAMPLE_TO_FRAME 2.8125
-//#define SAMPLE_TO_FRAME (90000.0/(get_fps() * 1000.0))
-
-//#define BYTERATE	((int)(21400 * 25 / get_fps()))
-
-#define   FSEEK    _fseeki64
-#define   FTELL    _ftelli64
-
 // The following two functions are undocumented and not included in any public header,
 // so we need to declare them ourselves
 extern int _fseeki64(FILE *, int64_t, int);
 
 extern int64_t _ftelli64(FILE *);
 
-int soft_seeking = 0;
 extern char inbasename[];
 
 char pict_type;
@@ -267,16 +186,11 @@ double selftest_target = 0.0;
 extern int frame_count;
 int framenum;
 
-fpos_t filepos;
-extern int standoff;
-int64_t goppos, infopos, packpos, ptspos, headerpos, frompos, SeekPos;
+
+int64_t infopos, headerpos;
 
 extern int max_repair_size;
-extern int variable_bitrate;
-int max_internal_repair_size = 40;
 int reviewing = 0;
-int count = 0;
-int currentSecond = 0;
 int cur_hour = 0;
 int cur_minute = 0;
 int cur_second = 0;
@@ -290,9 +204,6 @@ int csRestart;
 int csStartJump;
 int csStepping;
 int csJumping;
-int csFound;
-int seekIter = 0;
-int seekDirection = 0;
 
 extern FILE *out_file;
 extern uint8_t ccData[500];
@@ -306,9 +217,7 @@ extern int output_srt;
 extern int output_smi;
 
 extern unsigned char *frame_ptr;
-extern int lastFrameWasSceneChange;
 extern int live_tv_retries;
-extern int dvrms_live_tv_retries;
 int retries;
 
 //extern void set_fps(double frame_delay, double dfps, int ticks, double rfps, double afps);
@@ -359,12 +268,6 @@ static int sound_frame_counter = 0;
 
 extern double get_fps();
 
-extern int get_samplerate();
-
-extern int get_channels();
-
-extern void add_volumes(int *volumes, int nr_frames);
-
 extern void set_frame_volume(uint32_t framenr, int volume);
 
 extern double get_frame_pts(int f);
@@ -373,9 +276,7 @@ extern double get_frame_pts(int f);
 static int max_volume_found = 0;
 
 int ms_audio_delay = 5;
-int tracks_without_sound = 0;
 int frames_without_sound = 0;
-#define MAX_FRAMES_WITHOUT_SOUND    100
 int frames_with_loud_sound = 0;
 
 
@@ -589,7 +490,6 @@ void sound_to_frames(VideoState *is, short **b, int s, int c, int format) {
 #define AC3_BUFFER_SIZE 100000
 static uint8_t ac3_packet[AC3_BUFFER_SIZE];
 static int ac3_packet_index = 0;
-int data_size;
 
 int ac3_package_misalignment_count = 0;
 
@@ -998,114 +898,6 @@ void DoSeekRequest(VideoState *is) {
     is->seek_no_flush = 0;
 }
 
-void DecodeOnePicture(FILE *f, double pts) {
-    VideoState *is = global_video_state;
-    AVPacket *packet;
-//    int ret;
-
-//    int64_t pack_pts=0, comp_pts=0, pack_duration=0;
-
-    file_open();
-    is = global_video_state;
-
-    reviewing = 1;
-    Set_seek(is, pts);
-
-    pev_best_effort_timestamp = 0;
-    best_effort_timestamp = 0;
-    pts_offset = 0.0;
-
-//     Debug ( 5,  "Seek to %f\n", pts);
-    frame_ptr = NULL;
-    packet = &(is->audio_pkt);
-
-    for (;;) {
-        if (is->quit) {
-            break;
-        }
-        // seek stuff goes here
-        if (is->seek_req) {
-            again:
-            DoSeekRequest(is);
-        }
-        nextpacket:
-        if (av_read_frame(is->pFormatCtx, packet) < 0) {
-            break;
-        }
-        if (is->seek_req) {
-            double packet_time = (packet->pts - (is->video_st->start_time != AV_NOPTS_VALUE ? is->video_st->start_time : 0)) * av_q2d(is->video_st->time_base);
-            if (packet->pts == AV_NOPTS_VALUE) {
-                av_packet_unref(packet);
-                goto nextpacket;
-            }
-            if (is->seek_req < 6 && (is->seek_flags & AVSEEK_FLAG_BYTE) && is->duration > 0 && fabs(packet_time - (is->seek_pts - 2.5)) < is->duration / (10 * is->seek_req)) {
-                is->seek_pos += ((is->seek_pts - 2.5 - packet_time) / is->duration) * avio_size(is->pFormatCtx->pb) * 1.1;
-                is->seek_req++;
-                goto again;
-            }
-            is->seek_req = 0;
-        }
-        is->seek_req = 0;
-
-        if (packet->stream_index == is->videoStream) {
-/*
-            if (packet->pts != AV_NOPTS_VALUE)
-                comp_pts = packet->pts;
-            pack_pts = comp_pts; // av_rescale_q(comp_pts, is->video_st->time_base, AV_TIME_BASE_Q);
-            pack_duration = packet->duration; //av_rescale_q(packet->duration, is->video_st->time_base, AV_TIME_BASE_Q);
-            comp_pts += packet->duration;
- */
-            //           pass = 0;
-            retries = 1; // once a frame has been decoded this will be set to zero
-            if (video_packet_process(is, packet)) {
-
-                if (retries == 0) // A frame has been decoded so stop reading packets.
-                {
-#ifdef DEBUG
-                    printf("Seek landed at %8.2f\n", is->video_clock);
-#endif // DEBUG
-
-                    av_packet_unref(packet);
-                    break;
-                }
-/*
-                double frame_delay = av_q2d(is->video_st->codec->time_base)* is->video_st->codec->ticks_per_frame;         // <------------------------ frame delay is the time in seconds till the next frame
-                if (is->video_clock - is->seek_pts > -frame_delay / 2.0)
-                {
-                    av_packet_unref(packet);
-                    break;
-                }
-                if (is->video_clock + (pack_duration * av_q2d(is->video_st->time_base)) >= is->seek_pts)
-                {
-                    av_packet_unref(packet);
-                    break;
-                }
- */
-            }
-        } else if (packet->stream_index == is->audioStream) {
-            // audio_packet_process(is, packet);
-        } else {
-            // Do nothing
-        }
-        av_packet_unref(packet);
-    }
-    reviewing = 0;
-}
-
-void raise_exception(void) {
-#ifdef _WIN32
-    *(int *)0 = 0;
-#elif defined(__amd64__) || defined(__i386__)
-    __asm__("int3");
-#endif
-}
-
-
-int filter(void) {
-    printf("Exception raised, Comskip is terminating\n");
-    exit(99);
-}
-
 extern char mpegfilename[];
 
 
@@ -1114,7 +906,6 @@ int video_packet_process(VideoState *is, AVPacket *packet) {
     int len1, frameFinished;
     int repeat;
     double pts;
-//    double dts;
     double real_pts;
     static int find_29fps = 0;
     static int force_29fps = 0;
@@ -1126,7 +917,6 @@ int video_packet_process(VideoState *is, AVPacket *packet) {
     static double prev_real_pts = 0.0;
     static double prev_strange_step = 0.0;
     static int prev_strange_framenum = 0;
-//static double prev_frame_delay = 0.0;
 
     double calculated_delay;
 
@@ -1143,9 +933,8 @@ int video_packet_process(VideoState *is, AVPacket *packet) {
                                  packet);
 
     if (len1 < 0) {
-/*
-        if (len1 == -1 && thread_count > 1)
-        {
+        // todo maybe delete this if
+        if (len1 == -1 && thread_count > 1) {
             InitComSkip();
             thread_count = 1;
             is->seek_req = 1;
@@ -1154,10 +943,9 @@ int video_packet_process(VideoState *is, AVPacket *packet) {
             pev_best_effort_timestamp = 0;
             best_effort_timestamp = 0;
             framenum = 1;
-            Debug(1 ,"Restarting processing in single thread mode because frame size is changing \n");
+            Debug(1, "Restarting processing in single thread mode because frame size is changing \n");
             goto quit;
         }
-  */
     }
 
     // Did we get a video frame?
@@ -1717,12 +1505,6 @@ static void log_callback_report(void *ptr, int level, const char *fmt, va_list v
     //   fflush(report_file);
 }
 
-/* av_dict_set(&options, "video_size", "640x480", 0);
- * if (avformat_open_input(&s, url, NULL, &options) < 0)
- *     abort();
- * av_dict_free(&options);
- */
-
 void file_open() {
     VideoState *is;
     int subtitle_index = -1, audio_index = -1, video_index = -1;
@@ -1778,15 +1560,8 @@ void file_open() {
 
         }
         is->seek_by_bytes = !!(is->pFormatCtx->iformat->flags & AVFMT_TS_DISCONT) && strcmp("ogg", is->pFormatCtx->iformat->name);
-// #if def _DEBUG
-//        if (is->duration < 5*60 && retries++ < live_tv_retries)
-//        {
-//            Sleep(4000L);
-//            goto again;
-//        }
-// #en dif
-//     is->pFormatCtx->max_analyze_duration = 320000000;
-//    is->pFormatCtx->thread_count= 2;
+
+
 
         // Retrieve stream information
         if (avformat_find_stream_info(is->pFormatCtx, 0L) < 0) {
@@ -1861,10 +1636,6 @@ void file_open() {
     pts_offset = 0.0;
     is->video_clock = 0.0;
     is->audio_clock = 0.0;
-//                    sound_frame_counter = 0;
-//                    initial_pts = 0.0;
-//                    initial_pts_set = 0;
-//                    initial_apts_set = 0;
     initial_apts = 0;
     apts_offset = 0.0;
     base_apts = 0.0;
@@ -1872,14 +1643,6 @@ void file_open() {
     apts = 0.0;
     audio_buffer_ptr = audio_buffer;
     audio_samples = 0;
-//                    DUMP_CLOSE
-//                    DUMP_OPEN
-//                    DUMP_HEADER
-//                    close_data();
-#ifdef PROCESS_CC
-    //                    if (output_srt || output_smi) CEW_reinit();
-#endif
-
 }
 
 
@@ -1912,19 +1675,7 @@ void file_close() {
 //  global_video_state = NULL;
 };
 
-
-// copied & modified from mingw-runtime-3.13's init.c
-typedef struct {
-    int newmode;
-} _startupinfo;
-
-extern void __wgetmainargs(int *, wchar_t ***, wchar_t ***, int, _startupinfo
-*);
-
-/**
- * Application entry point here!
- */
-int main(int argc, char **argv) {
+void searchCom(char* videoname){
     AVPacket pkt1, *packet = &pkt1;
     int result = 0;
     int ret;
@@ -1944,10 +1695,12 @@ int main(int argc, char **argv) {
 
     fprintf(stderr, "%s, made using ffmpeg\n", PACKAGE_STRING);
 
-    //
-    // Wait until recording is complete...
-    //
-    in_file = LoadSettings(argc, argv);
+
+    char *argv[30];
+    argv[0] = "executeable";
+    argv[1] = videoname;
+// todo here
+    in_file = LoadSettings(2, argv);
 
     file_open();
 
@@ -2062,13 +1815,11 @@ int main(int argc, char **argv) {
                     }
                 }
 
-                if ((live_tv && retries < live_tv_retries) /* || (selftest == 3 && retries == 0) */) {
+                if ((live_tv && retries < live_tv_retries)) {
                     double frame_delay = av_q2d(is->video_st->codec->time_base) * is->video_st->codec->ticks_per_frame;
-//                    uint64_t retry_target;
                     if (retries == 0) {
                         if (selftest == 3)
                             retry_target = selftest_target;
-//                        retry_target = avio_tell(is->pFormatCtx->pb);
                         else
                             retry_target = is->video_clock + frame_delay;
                     }

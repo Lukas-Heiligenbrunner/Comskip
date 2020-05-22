@@ -9,30 +9,20 @@ CCExtract.gpl that helped
 John Bell- Samples, code.
 License: GPL 2.0
 */
-#include "../../inc/platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
-#include "../../inc/ccextratorwin/ccextractor.h"
-#include "../../inc/ccextratorwin/608.h"
+#include "ccextratorwin/ccextractor.h"
 #include <fcntl.h>
-#include <stdio.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 
 #define false 0
 #define true 1
-
-#ifdef _WIN32
-#include <io.h>
-#else
-
 #include <unistd.h>
 
-#endif
 
 extern unsigned char *filebuffer;
 extern int bytesinbuffer; // Number of bytes we actually have on buffer

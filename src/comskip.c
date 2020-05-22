@@ -16,9 +16,10 @@
 #include "platform.h"
 #include <argtable2.h>
 
-#define PACKAGE_STRING 1.0
-#define PROCESS_CC "DONATOR"
+#include "ccextratorwin/ccextractor.h"
 
+#define PACKAGE_STRING 1.0
+#define PROCESS_CC true
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -6966,7 +6967,6 @@ void LoadIniFile() {
     //	ini_file = myfopen(inifilename, "r");
     if (!ini_file) {
         printf("No INI file found in current directory.  Searching PATH...\n");
-        FindIniFile();
         if (*inifilename != '\0') {
             printf("INI file found at %s\n", inifilename);
             ini_file = myfopen(inifilename, "r");
@@ -7036,16 +7036,8 @@ void LoadIniFile() {
         if ((tmp = FindNumber(data, "volume_slip=", (double) volume_slip)) > -1) volume_slip = (int) tmp;
         //       if ((tmp = FindNumber(data, "variable_bitrate=", (double) variable_bitrate)) > -1) variable_bitrate = (int)tmp;
         if ((tmp = FindNumber(data, "lowres=", (double) lowres)) > -1) lowres = (int) tmp;
-#ifdef DONATOR
-                                                                                                                                if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int)tmp;
-//		if (skip_B_frames != 0 && max_repair_size == 0) max_repair_size = 40;
-#else
+        if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int)tmp;
 
-#ifdef _DEBUG
-                                                                                                                                if ((tmp = FindNumber(data, "skip_b_frames=", (double) skip_B_frames)) > -1) skip_B_frames = (int)tmp;
-        if (skip_B_frames != 0 && max_repair_size == 0) max_repair_size = 40;
-#endif
-#endif
 
         AddIniString("[Aspect Ratio]\n");
         if ((tmp = FindNumber(data, "ar_delta=", (double) ar_delta)) > -1) ar_delta = (double) tmp;
@@ -7238,6 +7230,13 @@ void LoadIniFile() {
         giveUpOnLogoSearch += added_recording * 60;
 }
 
+/**
+ * parse command line arguments here
+ *
+ * @param argc argument count
+ * @param argv arguments
+ * @return todo which file returned?
+ */
 FILE *LoadSettings(int argc, char **argv) {
     char tempstr[MAX_ARG];
 //	FILE*				ini_file = NULL;
@@ -7349,23 +7348,6 @@ FILE *LoadSettings(int argc, char **argv) {
         strcpy(argument[i], argv[i]);
     }
 
-    if (argc <= 1) {
-
-#ifdef COMSKIPGUI
-        //			output_debugwindow = true;
-#endif
-
-        if (strstr(argv[0], "GUI"))
-            output_debugwindow = true;
-        if (output_debugwindow) {
-// This is a trick to ask for a input filename when no argument has been given.
-//				while (mpegfilename[0] == 0)
-//					ReviewResult();
-//				argc++;
-//				strcpy(argument[1], mpegfilename);
-        }
-    }
-
 
 
     // verify the argtable[] entries were allocated sucessfully
@@ -7419,23 +7401,6 @@ FILE *LoadSettings(int argc, char **argv) {
 
     if (strcmp(in->extension[0], ".csv") != 0 && strcmp(in->extension[0], ".txt") != 0) {
         sprintf(mpegfilename, "%s", in->filename[0]);
-        /*		in_file = myfopen(in->filename[0], "rb");
-        		printf("Opening %s\n", in->filename[0]);
-        		if (!in_file) {
-        			fprintf(stderr, "%s - could not open file %s\n", strerror(errno), in->filename[0]);
-        			exit(3);
-        		}
-        */
-
-/*
-        i = mystat(( char *)in->filename[0], &instat);
-        if (i <0)
-               {
-                   fprintf(stderr, "%s - could not open file %s\n", strerror(errno), in->filename[0]);
-                   exit(3);
-
-               }
-*/
         sprintf(inbasename, "%.*s", (int) strlen(in->filename[0]) - (int) strlen(in->extension[0]), in->filename[0]);
         i = strlen(inbasename);
         while (i > 0 && inbasename[i - 1] != PATH_SEPARATOR) {
@@ -7443,15 +7408,6 @@ FILE *LoadSettings(int argc, char **argv) {
         }
         strcpy(shortbasename, &inbasename[i]);
 
-        //       sprintf(mpegfilename, "%.*s.txt", (int)strlen(inbasename), inbasename);
-/*
-        test_file = mymyfopen(mpegfilename, "w");
-        if (!test_file)
-        {
-            fprintf(stderr, "%s - could not open file %s\n", strerror(errno), in->filename[0]);
-            exit(3);
-        }
-*/
         sprintf(inifilename, "%.*scomskip.ini", i, inbasename);
     } else if (strcmp(in->extension[0], ".csv") == 0) {
         loadingCSV = true;
@@ -7946,238 +7902,6 @@ FILE *LoadSettings(int argc, char **argv) {
     arg_freetable(argtable, sizeof(argtable) / sizeof(argtable[0]));
     return (in_file);
 }
-
-/*
-#ifdef notused
-
-int GetAvgBrightness(void) {
-	int brightness = 0;
-	int pixels = 0;
-	int x;
-	int y;
-	for (y = border; y < (height - border); y += 4) {
-		for (x = border; x < (width - border); x += 4) {
-			brightness += frame_ptr[y * width + x];
-			pixels++;
-		}
-	}
-
-	return (brightness / pixels);
-}
-
-bool CheckFrameIsBlack(void) {
-	int			x;
-	int			y;
-	int			pass;
-	int			avg = 0;
-	const int	pass_start[7] = { 0, 4, 0, 2, 0, 1, 0 };
-	const int	pass_inc[7] = { 8, 8, 4, 4, 2, 2, 1 };
-	const int	pass_ystart[7] = { 0, 0, 4, 0, 2, 0, 1 };
-	const int	pass_yinc[7] = { 8, 8, 8, 4, 4, 2, 2 };
-	bool		isDim = false;
-	int			dimCount = 0;
-	int			pixelsChecked = 0;
-	int			curMaxBright = 0;
-	if (!width || !height) return (false);
-	avg = GetAvgBrightness();
-
-	// go through the image in png interlacing style testing if black
-	// skip region 'border' pixels wide/high around border of image.
-	for (pass = 0; pass < 7; pass++) {
-		for (y = pass_ystart[pass] + border; y < (height - border); y += pass_yinc[pass]) {
-			for (x = pass_start[pass] + border; x < (width - border); x += pass_inc[pass]) {
-				pixelsChecked++;
-				if (frame_ptr[y * width + x] > max_brightness) return (false);
-				if (frame_ptr[y * width + x] > test_brightness) {
-					isDim = true;
-					dimCount++;
-				}
-			}
-		}
-	}
-
-	if ((dimCount > (int)(.05 * pixelsChecked)) && (dimCount < (int)(.35 * pixelsChecked))) return (false);
-
-	// frame is dim so test average
-	if (isDim) {
-		if (avg > max_avg_brightness) return (false);
-	}
-
-	brightHistogram[avg]++;
-	InitializeBlackArray(black_count);
-	black[black_count].frame = framenum_real;
-	black[black_count].brightness = avg;
-	black[black_count].uniform = 0;
-	black[black_count].volume = curvolume;
-	if (avg < min_brightness_found) min_brightness_found = avg;
-	black_count++;
-	Debug(5, "Frame %6i - Black frame with brightness of %i\n", framenum_real, avg);
-	return (true);
-}
-
-void BuildBlackFrameCommList(void) {
-	long		c_start[MAX_COMMERCIALS];
-	long		c_end[MAX_COMMERCIALS];
-	long		ic_start[MAX_COMMERCIALS];
-	long		ic_end[MAX_COMMERCIALS];
-	int			commercials = 0;
-	int			i;
-	int			j;
-	int			k;
-	int			x;
-	int			len;
-	double		remainder;
-	double		added;
-	bool		oldbreak;
-	if (black_count == 0) return;
-
-	// detect individual commercials from black frames
-	for (i = 0; i < black_count; i++) {
-		for (x = i + 1; x < black_count; x++) {
-			int gap_length = black[x].frame - black[i].frame;
-			if (gap_length < min_commercial_size * fps) continue;
-			oldbreak = commercials > 0 && ((black[i].frame - c_end[commercials - 1]) < 10 * fps);
-			if (gap_length > max_commercialbreak * fps ||
-				(!oldbreak && gap_length > max_commercial_size * fps) ||
-				(oldbreak && (black[x].frame - c_end[commercials - 1] > max_commercial_size * fps)))
-				break;
-
-			// if((!require_div5) || ((int)((float)gap_length/fps + .5) %5 ==
-			// 0)) // look for segments in multiples of 5 seconds
-			added = gap_length / fps + div5_tolerance;
-			remainder = added - 5 * ((int)(added / 5.0));
-			Debug(4, "%i,%i,%i: %.2f,%.2f\n", black[i].frame, black[x].frame, gap_length, gap_length / fps, remainder);
-			if ((require_div5 != 1) || (remainder >= 0 && remainder <= 2 * div5_tolerance)) {
-
-				// look for segments in multiples of 5 seconds
-				if (oldbreak) {
-					if (black[x].frame > c_end[commercials - 1] + fps) {
-
-						// added = (black[x].frame -
-						// c_end[commercials-1])/fps;
-						c_end[commercials - 1] = black[x].frame;
-						ic_end[commercials - 1] = x;
-						Debug(
-							1,
-							"--start: %i, end: %i, len: %.2fs\t%.2fs\n",
-							black[i].frame,
-							black[x].frame,
-							(black[x].frame - black[i].frame) / fps,
-							(c_end[commercials - 1] - c_start[commercials - 1]) / fps
-						);
-					}
-				} else {
-
-					// new break
-					Debug(
-						1,
-						"\n  start: %i, end: %i, len: %.2fs\n",
-						black[i].frame,
-						black[x].frame,
-						((black[x].frame - black[i].frame) / fps)
-					);
-					ic_start[commercials] = i;
-					ic_end[commercials] = x;
-					c_start[commercials] = black[i].frame;
-					c_end[commercials++] = black[x].frame;
-					Debug(
-						1,
-						"\n  start: %i, end: %i, len: %is\n",
-						c_start[commercials - 1],
-						c_end[commercials - 1],
-						(int)((c_end[commercials - 1] - c_start[commercials - 1]) / fps)
-					);
-				}
-
-				i = x - 1;
-				x = black_count;
-			}
-		}
-	}
-
-	Debug(1, "\n");
-	if (verbose == 3 && runs == 0) {
-
-		// list all black scene breaks
-		marked = 0;
-		commercials = 0;
-		for (i = 0; i < black_count; i++) {
-			if ((black[i].frame - marked) > 5 * fps) {
-				marked = black[i].frame;
-				commercials++;
-				Debug(1, "%i: %i\n", commercials, marked);
-			}
-		}
-
-		Debug(1, "\n\n");
-	}
-
-	if (verbose == 4 && runs == 0) {
-		for (i = 0; i < black_count; i++) {
-			Debug(1, "%i\n", black[i].frame);
-		}
-
-		Debug(1, "\n\n");
-	}
-
-	if (runs > 0 || require_div5 < 2) {
-		Debug(1, "--------------------\n");
-	}
-
-	// print out commercial breaks skipping those that are too small or too large
-	for (i = 0; i < commercials; i++) {
-		len = c_end[i] - c_start[i];
-		if ((len >= (int)min_commercialbreak * fps) && (len <= (int)max_commercialbreak * fps)) {
-
-			// find the middle of the scene change, max 3 seconds.
-			j = ic_start[i];
-			while ((j > 0) && ((black[j].frame - black[j - 1].frame) == 1)) {
-
-				// find beginning
-				j--;
-			}
-
-			for (k = j; k < black_count; k++) {
-
-				// find end
-				if ((black[k].frame - black[j].frame) > (int)(3 * fps)) {
-					break;
-				}
-			}
-
-			x = j + (int)((k - j) / 2);
-			c_start[i] = black[x].frame;
-			j = ic_end[i];
-			while ((j < black_count) && ((black[j + 1].frame - black[j].frame) == 1)) {
-
-				// find end
-				j++;
-			}
-
-			for (k = j; k > 0; k--) {
-
-				// find start
-				if (black[j].frame - (black[k].frame) > (int)(3 * fps)) {
-					break;
-				}
-			}
-
-			x = k + (int)((j - k) / 2);
-			c_end[i] = black[x].frame - 1;
-			Debug(4, "%i - start: %i   end: %i\n", i + 1, c_start[i], c_end[i]);
-			if (require_div5 != 2) OutputCommercialBlock(c_start[i], c_end[i]);
-		}
-	}
-
-	if (require_div5 == 2) {
-		require_div5 = 1;
-		runs++;
-		BuildBlackFrameCommList();
-	}
-}
-
-#endif
-*/
 
 void ProcessARInfoInit(int minY, int maxY, int minX, int maxX) {
     double pictureHeight = maxY - minY;
@@ -10996,44 +10720,6 @@ void InitComSkip(void) {
     InitHasLogo();
     initialized = true;
     close_dump();
-}
-
-void FindIniFile(void) {
-#ifdef _WIN32
-                                                                                                                            char	searchinifile[] = "comskip.ini";
-    char	searchexefile[] = "comskip.exe";
-    char	searchdictfile[] = "comskip.dictionary";
-    char	envvar[] = "PATH";
-    _searchenv(searchinifile, envvar, inifilename);
-    if (*inifilename != '\0')
-    {
-        Debug(1, "Path for %s: %s\n", searchinifile, inifilename);
-    }
-    else
-    {
-        Debug(1, "%s not found\n", searchinifile);
-    }
-
-    _searchenv(searchdictfile, envvar, dictfilename);
-    if (*dictfilename != '\0')
-    {
-        Debug(1, "Path for %s: %s\n", searchdictfile, dictfilename);
-    }
-    else
-    {
-        Debug(1, "%s not found\n", searchdictfile);
-    }
-
-    _searchenv(searchexefile, envvar, exefilename);
-    if (*exefilename != '\0')
-    {
-        Debug(1, "Path for %s: %s\n", searchexefile, exefilename);
-    }
-    else
-    {
-        Debug(1, "%s not found\n", searchexefile);
-    }
-#endif
 }
 
 double FindScoreThreshold(double percentile) {

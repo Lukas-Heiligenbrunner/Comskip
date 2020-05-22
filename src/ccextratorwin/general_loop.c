@@ -1,5 +1,5 @@
-#include "../../inc/platform.h"
-#include "../../inc/ccextratorwin/ccextractor.h"
+#include "platform.h"
+#include "ccextratorwin/ccextractor.h"
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>

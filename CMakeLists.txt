@@ -19,17 +19,14 @@ include_directories(inc)
 
 SET(SOURCES
         src/comskip.c
-        inc/comskip.h
         src/mpeg2dec.c
         src/platform.c
-        inc/platform.h
         src/ccextratorwin/608.c
-        inc/ccextratorwin/608.h
         src/ccextratorwin/ccextractor.c
-        inc/ccextratorwin/ccextractor.h
         src/ccextratorwin/encoding.c
         src/ccextratorwin/general_loop.c
-        src/ccextratorwin/myth.c)
+        src/ccextratorwin/myth.c
+        src/main.c)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 

@@ -323,8 +323,8 @@ void get_char_in_unicode(unsigned char *buffer, unsigned char c) {
     *(buffer + 1) = c2;
 }
 
-int get_char_in_utf_8(unsigned char *buffer, unsigned char c) // Returns number of bytes used
-{
+// Returns number of bytes used
+int get_char_in_utf_8(unsigned char *buffer, unsigned char c) {
     if (c < 0x80) // Regular line-21 character set, mostly ASCII except these exceptions
     {
         switch (c) {

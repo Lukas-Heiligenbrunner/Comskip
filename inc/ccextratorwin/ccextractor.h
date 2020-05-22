@@ -1,7 +1,3 @@
-
-
-#include <stdio.h>
-
 #include "608.h"
 
 #ifndef int64_t_C
@@ -9,22 +5,7 @@
 #define uint64_t_C(c)    ((__int64) c )
 #endif
 
-#ifdef _WIN32
-#define FOPEN fopen
-#define OPEN _open
-// 64 bit file functions
-//extern int  _fseeki64(FILE *, __int64, int);
-//extern __int64 _ftelli64(FILE *);
-// Don't bug me with strcpy() deprecation warnings
-#pragma warning(disable : 4996)
-#define FSEEK _fseeki64
-#define FTELL _ftelli64
-#define TELL _telli64
-#define LSEEK _lseeki64
-typedef struct _stati64 FSTATSTRUCT;
-// #define LONG long long
-// typedef unsigned long long int64_t;
-#else
+
 #define FOPEN fopen
 #define OPEN open
 #define FSEEK fseek
@@ -32,7 +13,6 @@ typedef struct _stati64 FSTATSTRUCT;
 #define FSTAT fstat
 #define LSEEK lseek
 #define TELL tell
-#endif
 
 typedef signed long LONG;
 
