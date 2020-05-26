@@ -10,3 +10,5 @@
 #define MAXHEIGHT    2400
 
 void searchCom(char* videoname);
+
+void listAvailableDecoders();

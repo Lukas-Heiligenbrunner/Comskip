@@ -31,6 +31,9 @@
 #include <libavutil/samplefmt.h>
 #include <expat_config.h>
 
+#include "Settings.h"
+#include "mpeg2dec.h"
+
 #include <argtable2.h>
 
 //#define SELFTEST
@@ -59,10 +62,6 @@ static InputStream *ist = &inputs;
 #endif
 
 
-extern int hardware_decode;
-extern int use_cuvid;
-extern int use_vdpau;
-extern int use_dxva2;
 int av_log_level = AV_LOG_INFO;
 
 typedef struct VideoPicture {
@@ -134,7 +133,6 @@ static FILE *timing_file = 0;
 
 extern int lastFrameCommCalculated;
 
-extern int thread_count;
 int is_h264 = 0;
 int demux_pid = 0;
 int pid;
@@ -928,7 +926,7 @@ int video_packet_process(VideoState *is, AVPacket *packet) {
     real_pts = 0.0;
     pts = 0;
     //is->video_st->codec.thread_type
-    if (!hardware_decode) is->video_st->codec->flags |= AV_CODEC_FLAG_GRAY;
+    if (!Settings.hardware_decode) is->video_st->codec->flags |= AV_CODEC_FLAG_GRAY;
     // Decode video frame
     len1 = avcodec_decode_video2(is->video_st->codec, is->pFrame, &frameFinished,
                                  packet);
@@ -952,7 +950,7 @@ int video_packet_process(VideoState *is, AVPacket *packet) {
         //       if (prev_frame_delay != 0.0 && frame_delay != prev_frame_delay)
         //           Debug(1, "Changing fps from %6.3f to %6.3f", 1.0/prev_frame_delay, 1.0/frame_delay);
         pev_best_effort_timestamp = best_effort_timestamp;
-        if (use_cuvid)
+        if (Settings.use_cuvid)
             av_frame_set_best_effort_timestamp(is->pFrame, is->pFrame->pkt_pts);
         best_effort_timestamp = av_frame_get_best_effort_timestamp(is->pFrame);
         calculated_delay = (best_effort_timestamp - pev_best_effort_timestamp) * av_q2d(is->video_st->time_base);
@@ -1267,7 +1265,7 @@ int stream_component_open(VideoState *is, int stream_index) {
     avcodec_close(codecCtx);
 
     if (codecCtx->codec_type == AVMEDIA_TYPE_VIDEO) {
-        if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
+        if (!Settings.hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
         is->dec_ctx = codecCtx;
 #ifdef HARDWARE_DECODE
         ist->dec_ctx = codecCtx;
@@ -1287,7 +1285,7 @@ int stream_component_open(VideoState *is, int stream_index) {
 
 
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
-            codecCtx->thread_count = thread_count;
+            codecCtx->thread_count = Settings.thread_count;
         }
 
         if (codecCtx->codec_id == AV_CODEC_ID_H264) {
@@ -1305,7 +1303,7 @@ int stream_component_open(VideoState *is, int stream_index) {
         }
 
         if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
-            codecCtx->thread_count = thread_count;
+            codecCtx->thread_count = Settings.thread_count;
         }
     }
 
@@ -1313,14 +1311,14 @@ int stream_component_open(VideoState *is, int stream_index) {
     codec = avcodec_find_decoder(codecCtx->codec_id);
 
     // If decoding in hardware try if running on a Raspberry Pi and then use it's decoder instead.
-    if (hardware_decode) {
+    if (Settings.hardware_decode) {
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_mmal");
         if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_mmal");
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_mmal");
         if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_mmal") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_mmal");
     }
 
-    if (use_cuvid) {
+    if (Settings.use_cuvid) {
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_cuvid");
         if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_cuvid");
         if (codecCtx->codec_id == AV_CODEC_ID_HEVC && avcodec_find_decoder_by_name("hevc_cuvid") != NULL) codec_hw = avcodec_find_decoder_by_name("hevc_cuvid");
@@ -1328,20 +1326,20 @@ int stream_component_open(VideoState *is, int stream_index) {
         if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_cuvidl") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_cuvidl");
     }
 
-    if (use_vdpau) {
+    if (Settings.use_vdpau) {
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_vdpau");
         if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_vdpau");
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_vdpau");
         if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_vdpau") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_vdpau");
     }
-    if (use_dxva2) {
+    if (Settings.use_dxva2) {
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG2VIDEO && avcodec_find_decoder_by_name("mpeg2_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg2_dxva2");
         if (codecCtx->codec_id == AV_CODEC_ID_H264 && avcodec_find_decoder_by_name("h264_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("h264_dxva2");
         if (codecCtx->codec_id == AV_CODEC_ID_MPEG4 && avcodec_find_decoder_by_name("mpeg4_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("mpeg4_dxva2");
         if (codecCtx->codec_id == AV_CODEC_ID_VC1 && avcodec_find_decoder_by_name("vc1_dxva2") != NULL) codec_hw = avcodec_find_decoder_by_name("vc1_dxva2");
     }
 
-    if (!hardware_decode) av_dict_set_int(&myoptions, "gray", 1, 0);
+    if (!Settings.hardware_decode) av_dict_set_int(&myoptions, "gray", 1, 0);
 
 
     //       av_dict_set_int(&myoptions, "fastint", 1, 0);
@@ -1391,7 +1389,7 @@ int stream_component_open(VideoState *is, int stream_index) {
 //          is->video_current_pts_time = av_gettime();
 
             is->pFrame = av_frame_alloc();
-            if (!hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
+            if (!Settings.hardware_decode) codecCtx->flags |= AV_CODEC_FLAG_GRAY;
 //       codecCtx->thread_type = 1; // Frame based threading
             codecCtx->lowres = min(av_codec_get_max_lowres(codecCtx->codec), lowres);
             if (codecCtx->codec_id == AV_CODEC_ID_H264) {
@@ -1400,7 +1398,7 @@ int stream_component_open(VideoState *is, int stream_index) {
 
             //        codecCtx->flags2 |= CODEC_FLAG2_FAST;
             if (codecCtx->codec_id != AV_CODEC_ID_MPEG1VIDEO) {
-                codecCtx->thread_count = thread_count;
+                codecCtx->thread_count = Settings.thread_count;
             }
             if (codecCtx->codec_id == AV_CODEC_ID_MPEG1VIDEO)
                 is->video_st->codec->ticks_per_frame = 1;
@@ -1488,16 +1486,16 @@ void file_open() {
         is->pFormatCtx = NULL;
 
 //        av_dict_set_int(&opts, "lowres", stream_lowres, 0);
-        if (!hardware_decode) {
+        if (!Settings.hardware_decode) {
 //            codecCtx->flags |= AV_CODEC_FLAG_GRAY;
             av_dict_set_int(&myoptions, "gray", 1, 0);
         }
 
         //        if (thread_count == 1)
-        av_dict_set_int(&myoptions, "threads", thread_count, 0);
+        av_dict_set_int(&myoptions, "threads", Settings.thread_count, 0);
         //        else
         //            av_dict_set(&myoptions, "threads", "auto", 0);
-        //           codecCtx->thread_count= thread_count;
+        //           codecCtx->thread_count= Settings.thread_count;
 
         av_dict_set_int(&myoptions, "refcounted_frames", 1, 0); // No need to keep multiple buffers
     } else
@@ -1649,6 +1647,8 @@ void searchCom(char* videoname){
 
     char *ptr;
     size_t len;
+
+    sett_initDefaults();
 
 
     fprintf(stderr, "%s, made using ffmpeg\n", PACKAGE_STRING);

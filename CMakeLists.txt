@@ -26,7 +26,9 @@ SET(SOURCES
         src/ccextratorwin/encoding.c
         src/ccextratorwin/general_loop.c
         src/ccextratorwin/myth.c
-        src/main.c)
+
+        src/main.c
+        src/Settings.c)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 

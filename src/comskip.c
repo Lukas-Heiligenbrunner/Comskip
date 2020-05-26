@@ -15,11 +15,12 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "platform.h"
 #include <argtable2.h>
+#include "Settings.h"
+#include "mpeg2dec.h"
 
 #include "ccextratorwin/ccextractor.h"
 
 #define PACKAGE_STRING 1.0
-#define PROCESS_CC true
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -37,28 +38,20 @@
 #include "comskip.h"
 
 
-// Define detection methods
-#define BLACK_FRAME        1
-#define LOGO            2
-#define SCENE_CHANGE    4
-#define RESOLUTION_CHANGE        8
-#define CC                16
-#define AR                32
-#define SILENCE            64
-#define    CUTSCENE        128
+
 
 // Define logo detection directions
 #define HORIZ    0
-#define VERT    1
+#define VERT     1
 #define DIAG1    2
 #define DIAG2    3
 
 // Define CC types
 #define NONE        0
-#define ROLLUP        1
-#define POPON        2
-#define PAINTON        3
-#define COMMERCIAL    4
+#define ROLLUP      1
+#define POPON       2
+#define PAINTON     3
+#define COMMERCIAL  4
 
 // Define aspect ratio
 #define FULLSCREEN        true
@@ -72,13 +65,6 @@
 #define OPEN_INI    2
 #define SAVE_DMP    3
 #define SAVE_INI    4
-
-#ifdef DONATOR
-#define COMSKIPPUBLIC "donator"
-#else
-#define COMSKIPPUBLIC "public"
-#endif
-
 
 #define MAX(X, Y) (X>Y?X:Y)
 #define MIN(X, Y) (X<Y?X:Y)
@@ -127,7 +113,6 @@ FILE *aspect_file = NULL;
 FILE *cutscene_file = NULL;
 FILE *mkvtoolnix_chapters_file = NULL;
 FILE *mkvtoolnix_tags_file = NULL;
-extern int demux_pid;
 extern int selected_audio_pid;
 extern int selected_subtitle_pid;
 extern int selected_video_pid;
@@ -147,7 +132,6 @@ int audio_channels;
 extern int xPos, yPos, lMouseDown;
 
 extern int framenum_infer;
-extern void list_codes;
 
 extern int64_t headerpos;
 int vo_init_done = 0;
@@ -449,11 +433,24 @@ struct {
 } ac_histogram[MAX_AUDIO_CHANNELS];
 int dominant_ac;
 
-int thread_count = 2;
-int hardware_decode = 0;
-int use_cuvid = 0;
-int use_vdpau = 0;
-int use_dxva2 = 0;
+/**
+ *
+ * list of parameters used for searching the coms
+ *
+ */
+
+///**
+// * allow hardware decoding?
+// */
+//int hardware_decode = 0;
+//
+///**
+// * use cuvid decoding?
+// */
+//int use_cuvid = 0;
+//int use_vdpau = 0;
+//int use_dxva2 = 0;
+
 int skip_B_frames = 0;
 int lowres = 0;
 bool live_tv = false;
@@ -577,7 +574,6 @@ double min_commercial_size = 4;    // mimimum time in seconds for a single comme
 double min_show_segment_length = 120.0;
 bool require_div5 = 0;                    // set=1 to only mark breaks divisible by 5 as a commercial.
 double div5_tolerance = -1;
-bool play_nice = false;
 double global_threshold = 1.05;
 bool intelligent_brightness = false;
 double logo_threshold = 0.80;
@@ -591,7 +587,6 @@ double uniform_percentile = 0.003;
 double score_percentile = 0.71;
 double logo_percentile = 0.92;
 double logo_fraction = 0.40;
-int commDetectMethod = BLACK_FRAME + LOGO + RESOLUTION_CHANGE + AR + SILENCE + (PROCESS_CC ? CC : 0);
 int giveUpOnLogoSearch = 2000;            // If no logo is identified after x seconds into the show - give up.
 int delay_logo_search = 0;            // If no logo is identified after x seconds into the show - give up.
 int cut_on_ar_change = 1;
@@ -640,7 +635,6 @@ char cuttermaran_options[1024];
 char mpeg2schnitt_options[1024];
 char avisynth_options[1024];
 char dvrcut_options[1024];
-bool output_demux = false;
 bool output_data = false;
 bool output_srt = false;
 bool output_smi = false;
@@ -1342,7 +1336,7 @@ bool BuildBlocks(bool recalc) {
             non_uniformity = uniform_threshold = FindUniformThreshold(uniform_percentile);
             Debug(1, "Setting uniform threshold to %i\n", uniform_threshold);
 
-            if (commDetectMethod & BLACK_FRAME) {
+            if (Settings.commDetectMethod & BLACK_FRAME) {
                 for (i = 1; i < frame_count; i++) {
                     frame[i].isblack &= ~C_u;
                     if (/*!(frame[i].isblack & C_b) && */ non_uniformity > 0 && frame[i].uniform < non_uniformity && frame[i].brightness < 250 /*&& frame[i].volume < max_volume*/ )
@@ -1527,7 +1521,7 @@ bool BuildBlocks(bool recalc) {
 //			cut_on_ar_change = 2;
     }
 
-    if (((commDetectMethod & LOGO) && cut_on_ar_change) || cut_on_ar_change >= 2) {
+    if (((Settings.commDetectMethod & LOGO) && cut_on_ar_change) || cut_on_ar_change >= 2) {
 //	if (cut_on_ar_change ) {
         for (i = 0; i < ar_block_count; i++) {
             if ((cut_on_ar_change == 1 || ar_block[i].volume < max_volume) &&
@@ -1559,7 +1553,7 @@ bool BuildBlocks(bool recalc) {
         ValidateBlackFrames(C_u, ((logoPercentage < logo_fraction || logoPercentage > logo_percentile) ? 1.2 : 3.0), true);
 
 
-    if (commDetectMethod & SILENCE) {
+    if (Settings.commDetectMethod & SILENCE) {
         k = 0;
         for (i = 0; i < frame_count; i++) {
             if (frame[i].volume < max_volume) k++;
@@ -1618,7 +1612,7 @@ bool BuildBlocks(bool recalc) {
     prev_head = 0;
 
     while (i < black_count || a < ar_block_count) {
-        if (!(commDetectMethod & LOGO) && i < black_count && (black[i].cause & (C_s | C_l))) {
+        if (!(Settings.commDetectMethod & LOGO) && i < black_count && (black[i].cause & (C_s | C_l))) {
 //			i++; // Skip logo cuts and brighness cuts when not enough logo detected
 //			goto again;
         }
@@ -1817,7 +1811,7 @@ void CleanLogoBlocks() {
     double sum_brightness2;
     int sum_delta;
 #if 1
-    if ((commDetectMethod & LOGO /* || startOverAfterLogoInfoAvail==0 */ ) && !reverseLogoLogic && connect_blocks_with_logo) {
+    if ((Settings.commDetectMethod & LOGO /* || startOverAfterLogoInfoAvail==0 */ ) && !reverseLogoLogic && connect_blocks_with_logo) {
         //Combine blocks with both logo
         for (i = block_count - 1; i >= 1; i--) {
             if (CheckFrameForLogo(cblock[i - 1].f_end) &&
@@ -2001,7 +1995,7 @@ static int shift = 0;
 
 void Recalc() {
     BuildBlocks(true);
-    if (commDetectMethod & LOGO) {
+    if (Settings.commDetectMethod & LOGO) {
         PrintLogoFrameGroups();
     }
     WeighBlocks();
@@ -2404,7 +2398,7 @@ int DetectCommercials(int f, double pts) {
     avg_fps = 1.0 / (pts / frame_count);
 
     if (framenum_real < 0) return 0;
-    if (play_nice) Sleep(play_nice_sleep);
+    if (Settings.play_nice) Sleep(play_nice_sleep);
     if (framearray) InitializeFrameArray(framenum_real);
 //	curvolume = RetreiveVolume(framenum_real);
     //curvolume = RetreiveVolume(frame_count);
@@ -2471,7 +2465,7 @@ int DetectCommercials(int f, double pts) {
     isBlack = oldBlack_count != black_count;    /*Gil*/
 
 
-    if ((commDetectMethod & LOGO) && ((frame_count % (int) (fps * logoFreq)) == 0)) {
+    if ((Settings.commDetectMethod & LOGO) && ((frame_count % (int) (fps * logoFreq)) == 0)) {
         if (!logoInfoAvailable || (!lastLogoTest && !startOverAfterLogoInfoAvail)) {
             if (delay_logo_search == 0 ||
                 (delay_logo_search == 1 && F2T(frame_count) > added_recording * 60) ||
@@ -3040,7 +3034,7 @@ bool BuildMasterCommList(void) {
         Debug(1, "Setting max_volume to %i\n", max_volume);
     }
 
-    if (commDetectMethod & LOGO) {
+    if (Settings.commDetectMethod & LOGO) {
         // close out last logo cblock if one is open
         ProcessLogoTest(frame_count, false, true);
         /*
@@ -3279,7 +3273,7 @@ bool BuildMasterCommList(void) {
 //		}
         if (logoPercentage < logo_fraction - 0.05 || logoPercentage > logo_percentile) {
             Debug(1, "\nNot enough or too much logo's found (%.2f), disabling the use of Logo detection\n", logoPercentage);
-            commDetectMethod -= LOGO;
+            Settings.commDetectMethod -= LOGO;
         }
     }
 
@@ -3300,7 +3294,7 @@ bool BuildMasterCommList(void) {
         }
     }
 
-    if (commDetectMethod & SILENCE) {
+    if (Settings.commDetectMethod & SILENCE) {
         silence_count = 0;
         schange_found = false;
         schange_frame = 0;
@@ -3419,7 +3413,7 @@ bool BuildMasterCommList(void) {
     }
 
     // close out the last ar cblock
-    if (commDetectMethod & AR) {
+    if (Settings.commDetectMethod & AR) {
         if (ar_block[ar_block_count].start > 0) {
             Debug(5, "The last ar cblock wasn't closed.  Now closing.\n");
             ar_block[ar_block_count].end = frame_count;
@@ -3502,7 +3496,7 @@ bool BuildMasterCommList(void) {
             			}
             */
 #if 1
-            if (commDetectMethod & LOGO && ar_block[i - 1].ar_ratio != AR_UNDEF &&
+            if (Settings.commDetectMethod & LOGO && ar_block[i - 1].ar_ratio != AR_UNDEF &&
                 ar_block[i].ar_ratio > ar_block[i - 1].ar_ratio &&
                 CheckFrameForLogo(ar_block[i - 1].end) &&
                 CheckFrameForLogo(ar_block[i].start)) {
@@ -3620,7 +3614,7 @@ bool BuildMasterCommList(void) {
     if (output_framearray) OutputBlackArray();
 
     BuildBlocks(false);
-    if (commDetectMethod & LOGO) {
+    if (Settings.commDetectMethod & LOGO) {
         PrintLogoFrameGroups();
     }
     WeighBlocks();
@@ -3830,7 +3824,7 @@ void WeighBlocks(void) {
     int max_combined_count = 25;
     bool breakforcombine = false;
 
-    if (commDetectMethod & AR) {
+    if (Settings.commDetectMethod & AR) {
 //		showAvgAR = AverageARForBlock(1, framesprocessed);
         SetARofBlocks();
     }
@@ -3861,15 +3855,15 @@ void WeighBlocks(void) {
     }
 
 
-    if (commDetectMethod & LOGO) {
+    if (Settings.commDetectMethod & LOGO) {
         if (logoPercentage < logo_fraction - 0.05 || logoPercentage > logo_percentile) {
             Debug(1, "Not enough or too much logo's found, disabling the use of Logo detection\n", i);
-            commDetectMethod -= LOGO;
+            Settings.commDetectMethod -= LOGO;
             max_score = 10000;
         }
     }
     for (i = 0; i < block_count; i++) {
-        if (commDetectMethod & LOGO) {
+        if (Settings.commDetectMethod & LOGO) {
             cblock[i].logo = CalculateLogoFraction(cblock[i].f_start, cblock[i].f_end);
         } else
             cblock[i].logo = 0;
@@ -3880,21 +3874,21 @@ void WeighBlocks(void) {
 
     CleanLogoBlocks();        // Can join blocks, so recalculate logo
 
-    if (commDetectMethod & SCENE_CHANGE) {
+    if (Settings.commDetectMethod & SCENE_CHANGE) {
         for (i = 0; i < block_count; i++) {
             Debug(5, "Block %.3i\tschange_rate - %.2f\t average - %.2f\n", i, cblock[i].schange_rate, avg_schange);
         }
     }
 
     for (i = 0; i < block_count; i++) {
-        if (commDetectMethod & LOGO) {
+        if (Settings.commDetectMethod & LOGO) {
             cblock[i].logo = CalculateLogoFraction(cblock[i].f_start, cblock[i].f_end);
         } else
             cblock[i].logo = 0;
     }
 
 
-    if ((commDetectMethod & LOGO) && logoPercentage > 0.4) {
+    if ((Settings.commDetectMethod & LOGO) && logoPercentage > 0.4) {
         if (score_percentile + logoPercentage < 1.0)
             score_percentile = logoPercentage + score_percentile;
     } else if (score_percentile < 0.5)
@@ -4146,7 +4140,7 @@ void WeighBlocks(void) {
         }
 #endif
         // if logo detected in cblock, score = 10%
-        if (commDetectMethod & LOGO) {
+        if (Settings.commDetectMethod & LOGO) {
             if (cblock[i].logo > logo_percentage_threshold) {
                 Debug(2, "Block %i has logo.\n", i);
                 Debug(3, "Block %i score:\tBefore - %.2f\t", i, cblock[i].score);
@@ -4649,7 +4643,7 @@ void WeighBlocks(void) {
     if (delete_show_before_or_after_current && logo_block_count >= 80)
         Debug(10, "Too many logo blocks, disabling the delete_show_before_or_after_current processing\n");
     if (delete_show_before_or_after_current &&
-        (commDetectMethod & LOGO) && connect_blocks_with_logo &&
+        (Settings.commDetectMethod & LOGO) && connect_blocks_with_logo &&
         !reverseLogoLogic && logoPercentage > logo_fraction - 0.05 && logo_block_count < 40) {
         /*
         		for (i = 0; i < block_count-1; i++) {
@@ -4785,7 +4779,7 @@ void WeighBlocks(void) {
     }
     if (!(disable_heuristics & (1 << (4 - 1)))) {
 
-        if ((commDetectMethod & LOGO) && !reverseLogoLogic && logoPercentage > logo_fraction) {
+        if ((Settings.commDetectMethod & LOGO) && !reverseLogoLogic && logoPercentage > logo_fraction) {
             i = 1;
             while (i < block_count) {
                 if (cblock[i].score < 1 && cblock[i].b_head > 7 && CUTCAUSE(cblock[i - 1].cause) == C_b) {
@@ -4803,7 +4797,7 @@ void WeighBlocks(void) {
                 i++;
             }
         }
-        if ((commDetectMethod & LOGO) && !reverseLogoLogic && logoPercentage > logo_fraction) {
+        if ((Settings.commDetectMethod & LOGO) && !reverseLogoLogic && logoPercentage > logo_fraction) {
             i = 0;
             while (i < block_count) {
                 if (cblock[i].score < 1 && cblock[i].b_tail > 7 && CUTCAUSE(cblock[i].cause) == C_b) {
@@ -5615,7 +5609,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
     CLOSEOUTFILE(avisynth_file);
 
     if (videoredo_file && prev < start && end - start > 2) {
-        if (i == 0 && demux_pid)
+        if (i == 0 && Settings.demux_pid)
             fprintf(videoredo_file, "<VideoStreamPID>%d\n<AudioStreamPID>%d\n<SubtitlePID1>%d\n", selected_video_pid, selected_audio_pid, selected_subtitle_pid);
         s_start = max(start - videoredo_offset - 1, 0);
         s_end = max(end - videoredo_offset - 1, 0);
@@ -5627,7 +5621,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
         /*
               <cut Sequence="2" CutStart="00:00:05;10" CutEnd="00:00:20;16" Elapsed="00:00:02;01"> <CutTimeStart>54000113</CutTimeStart> <CutTimeEnd>206400112</CutTimeEnd> </cut>
           */
-        if (i == 0 && demux_pid)
+        if (i == 0 && Settings.demux_pid)
             fprintf(videoredo3_file, "<InputPIDList><VideoStreamPID>%d</VideoStreamPID>\n<AudioStreamPID>%d</AudioStreamPID><SubtitlePID1>%d</SubtitlePID1></InputPIDList>\n", selected_video_pid, selected_audio_pid, selected_subtitle_pid);
         s_start = max(start - videoredo_offset - 1, 0);
         s_end = max(end - videoredo_offset - 1, 0);
@@ -5660,7 +5654,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
         s_start = max(start - edl_offset, 0);
         s_end = max(end - edl_offset, 0);
 
-        if (demux_pid && enable_mencoder_pts) {
+        if (Settings.demux_pid && enable_mencoder_pts) {
             fprintf(edl_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start) + F2T(1), get_frame_pts(s_end) + F2T(1), edl_skip_field);
         } else {
             fprintf(edl_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start), get_frame_pts(s_end), edl_skip_field);
@@ -5674,7 +5668,7 @@ void OutputCommercialBlock(int i, long prev, long start, long end, bool last) {
         s_start = max(start - edl_offset, 0);
         s_end = max(end - edl_offset, 0);
 
-        if (demux_pid && enable_mencoder_pts) {
+        if (Settings.demux_pid && enable_mencoder_pts) {
             fprintf(live_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start) + F2T(1), get_frame_pts(s_end) + F2T(1), edl_skip_field);
         } else {
             fprintf(live_file, "%.2f\t%.2f\t%d\n", get_frame_pts(s_start), get_frame_pts(s_end), edl_skip_field);
@@ -6387,7 +6381,7 @@ bool OutputBlocks(void) {
 
 
     if (verbose) {
-        Debug(1, "\nLogo fraction:              %.4f      %s\n", logoPercentage, ((commDetectMethod & LOGO) ? (reverseLogoLogic ? "(Reversed Logo Logic)" : "") : "Logo disabled"));
+        Debug(1, "\nLogo fraction:              %.4f      %s\n", logoPercentage, ((Settings.commDetectMethod & LOGO) ? (reverseLogoLogic ? "(Reversed Logo Logic)" : "") : "Logo disabled"));
         Debug(1, "Maximum volume found:       %6i\n", maxi_volume);
         Debug(1, "Average volume:             %6i\n", avg_volume);
         Debug(1, "Sound threshold:            %6i\n", max_volume);
@@ -6471,7 +6465,7 @@ bool OutputBlocks(void) {
                     cblock[i].stdev,
                     CCTypeToStr(cblock[i].cc_type)
             );
-            if (commDetectMethod & LOGO) {
+            if (Settings.commDetectMethod & LOGO) {
 //				if (CheckFramesForLogo(cblock[i].f_start, cblock[i].f_end)) {
 //					Debug(1, "\tLogo Present\n");
 //				} else {
@@ -6960,7 +6954,10 @@ char *dblSecondsToStrMinutesFrames(double seconds) {
     return (tempString);
 }
 
-
+/**
+ * read configuration out of a ini file
+ * todo maybe delete this later.
+ */
 void LoadIniFile() {
 //	FILE*				ini_file = NULL;
     char data[60000];
@@ -6968,7 +6965,7 @@ void LoadIniFile() {
     size_t len = 0;
     double tmp;
     ini_text[0] = 0;
-    //	ini_file = myfopen(inifilename, "r");
+    ini_file = myfopen("test.ini", "r");
     if (!ini_file) {
         printf("No INI file found in current directory.  Searching PATH...\n");
         if (*inifilename != '\0') {
@@ -6988,7 +6985,7 @@ void LoadIniFile() {
         AddIniString("[Main Settings]\n");
         AddIniString(
                 ";the sum of the values for which kind of frames comskip will consider as possible cutpoints: 1=uniform (black or any other color) frame, 2=logo, 4=scene change, 8=resolution change, 16=closed captions, 32=aspect ration, 64=silence, 255=all.\n");
-        if ((tmp = FindNumber(data, "detect_method=", (double) commDetectMethod)) > -1) commDetectMethod = (int) tmp;
+        if ((tmp = FindNumber(data, "detect_method=", (double) Settings.commDetectMethod)) > -1) Settings.commDetectMethod = (int) tmp;
         AddIniString(";Set to 10 to show a lot of extra info, level 5 is also OK, set to 0 to disable\n");
         if ((tmp = FindNumber(data, "verbose=", (double) verbose)) > -1) verbose = (int) tmp;
         AddIniString(";Frame not black if any of the pixels of the frame has a brightness greater than this (scale 0 to 255)\n");
@@ -7027,9 +7024,9 @@ void LoadIniFile() {
         if ((tmp = FindNumber(data, "disable_heuristics=", (double) disable_heuristics)) > -1) disable_heuristics = (int) tmp;
         if ((tmp = FindNumber(data, "cut_on_ac_change=", (double) cut_on_ac_change)) > -1) cut_on_ac_change = (int) tmp;
         AddIniString("[CPU Load Reduction]\n");
-        if ((tmp = FindNumber(data, "thread_count=", (double) thread_count)) > -1) thread_count = (int) tmp;
-        if (!hardware_decode)
-            if ((tmp = FindNumber(data, "hardware_decode=", (double) hardware_decode)) > -1) hardware_decode = (int) tmp;
+        if ((tmp = FindNumber(data, "thread_count=", (double) Settings.thread_count)) > -1) Settings.thread_count = (int) tmp;
+        if (!Settings.hardware_decode)
+            if ((tmp = FindNumber(data, "hardware_decode=", (double) Settings.hardware_decode)) > -1) Settings.hardware_decode = (int) tmp;
 
         if ((tmp = FindNumber(data, "play_nice_start=", (double) play_nice_start)) > -1) play_nice_start = (int) tmp;
         if ((tmp = FindNumber(data, "play_nice_end=", (double) play_nice_end)) > -1) play_nice_end = (int) tmp;
@@ -7183,7 +7180,7 @@ void LoadIniFile() {
         if ((tmp = FindNumber(data, "output_training=", (double) output_training)) > -1) output_training = (bool) tmp;
         if ((tmp = FindNumber(data, "output_false=", (double) output_false)) > -1) output_false = (bool) tmp;
         if ((tmp = FindNumber(data, "output_aspect=", (double) output_aspect)) > -1) output_aspect = (bool) tmp;
-        if ((tmp = FindNumber(data, "output_demux=", (double) output_demux)) > -1) output_demux = (bool) tmp;
+        if ((tmp = FindNumber(data, "output_demux=", (double) Settings.output_demux)) > -1) Settings.output_demux = (bool) tmp;
         if ((tmp = FindNumber(data, "output_data=", (double) output_data)) > -1) output_data = (bool) tmp;
         if ((tmp = FindNumber(data, "output_srt=", (double) output_srt)) > -1) output_srt = (bool) tmp;
         if ((tmp = FindNumber(data, "output_smi=", (double) output_smi)) > -1) output_smi = (bool) tmp;
@@ -7243,17 +7240,17 @@ void LoadIniFile() {
  */
 FILE *LoadSettings(int argc, char **argv) {
     char tempstr[MAX_ARG];
-//	FILE*				ini_file = NULL;
+
     FILE *logo_file = NULL;
     FILE *log_file = NULL;
     FILE *test_file = NULL;
     int i = 0;
-//	int					play_nice_start = -1;
-//	int					play_nice_end = -1;
+
+
     time_t ltime;
     struct tm *now = NULL;
     int mil_time;
-    struct arg_lit *cl_playnice = arg_lit0("n", "playnice", "Slows detection down");
+
     struct arg_lit *cl_output_zp_cutlist = arg_lit0(NULL, "zpcut", "Outputs a ZoomPlayer cutlist");
     struct arg_lit *cl_output_zp_chapter = arg_lit0(NULL, "zpchapter", "Outputs a ZoomPlayer chapter file");
     struct arg_lit *cl_output_scf = arg_lit0(NULL, "scf", "Outputs a simple chapter file for mkvmerge");
@@ -7262,23 +7259,12 @@ FILE *LoadSettings(int argc, char **argv) {
     struct arg_lit *cl_output_csv = arg_lit0(NULL, "csvout", "Outputs a csv of the frame array");
     struct arg_lit *cl_output_training = arg_lit0(NULL, "quality", "Outputs a csv of false detection segments");
     struct arg_lit *cl_output_plist = arg_lit0(NULL, "plist", "Outputs a mac-style plist for addition to an EyeTV archive as the 'markers' property");
-    struct arg_int *cl_detectmethod = arg_intn("d", "detectmethod", NULL, 0, 1, "An integer sum of the detection methods to use");
-//	struct arg_int*		cl_pid					= arg_intn("p", "pid", NULL, 0, 1, "The PID of the video in the TS");
-    struct arg_str *cl_pid = arg_strn("p", "pid", NULL, 0, 1, "The PID of the video in the TS");
     struct arg_int *cl_dump = arg_intn("u", "dump", NULL, 0, 1, "Dump the cutscene at this frame number");
-    struct arg_lit *cl_ts = arg_lit0("t", "ts", "The input file is a Transport Stream");
-    struct arg_lit *cl_help = arg_lit0("h", "help", "Display syntax");
     struct arg_lit *cl_show = arg_lit0("s", "play", "Play the video");
     struct arg_lit *cl_timing = arg_lit0(NULL, "timing", "Dump the timing into a file");
     struct arg_lit *cl_debugwindow = arg_lit0("w", "debugwindow", "Show debug window");
     struct arg_lit *cl_quiet = arg_lit0("q", "quiet", "Not output logging to the console window");
-    struct arg_lit *cl_demux = arg_lit0("m", "demux", "Demux the input into elementary streams");
-    struct arg_lit *cl_hwassist = arg_lit0(NULL, "hwassist", "Activate Hardware Assisted video decoding");
-    struct arg_lit *cl_use_cuvid = arg_lit0(NULL, "cuvid", "Use NVIDIA Video Decoder (CUVID), if available");
-    struct arg_lit *cl_use_vdpau = arg_lit0(NULL, "vdpau", "Use NVIDIA Video Decode and Presentation API (VDPAU), if available");
-    struct arg_lit *cl_use_dxva2 = arg_lit0(NULL, "dxva2", "Use DXVA2 Video Decode and Presentation API (DXVA2), if available");
     struct arg_lit *cl_list_decoders = arg_lit0(NULL, "decoders", "List all decoders and exit");
-    struct arg_int *cl_threads = arg_int0(NULL, "threads", "<int>", "The number of threads to use");
     struct arg_int *cl_verbose = arg_intn("v", "verbose", NULL, 0, 1, "Verbose level");
     struct arg_file *cl_ini = arg_filen(NULL, "ini", NULL, 0, 1, "Ini file to use");
     struct arg_file *cl_logo = arg_filen(NULL, "logo", NULL, 0, 1, "Logo file to use");
@@ -7289,11 +7275,10 @@ FILE *LoadSettings(int argc, char **argv) {
     struct arg_file *in = arg_filen(NULL, NULL, NULL, 1, 1, "Input file");
     struct arg_file *out = arg_filen(NULL, NULL, NULL, 0, 1, "Output folder for cutlist");
     struct arg_end *end = arg_end(20);
+
     void *argtable[] =
             {
-                    cl_help,
                     cl_debugwindow,
-                    cl_playnice,
                     cl_output_zp_cutlist,
                     cl_output_zp_chapter,
                     cl_output_scf,
@@ -7302,16 +7287,7 @@ FILE *LoadSettings(int argc, char **argv) {
                     cl_output_csv,
                     cl_output_training,
                     cl_output_plist,
-                    cl_demux,
-                    cl_hwassist,
-                    cl_use_cuvid,
-                    cl_use_vdpau,
-                    cl_use_dxva2,
                     cl_list_decoders,
-                    cl_threads,
-                    cl_pid,
-                    cl_ts,
-                    cl_detectmethod,
                     cl_verbose,
                     cl_dump,
                     cl_show,
@@ -7327,7 +7303,7 @@ FILE *LoadSettings(int argc, char **argv) {
                     out,
                     end
             };
-    int nerrors;
+
     incomingCommandLine[0] = 0; // was:	sprintf(incomingCommandLine, "");
     if (strchr(argv[0], ' ')) {
         sprintf(incomingCommandLine, "\"%s\"", argv[0]);
@@ -7360,47 +7336,6 @@ FILE *LoadSettings(int argc, char **argv) {
         // NULL entries were detected, some allocations must have failed
         Debug(0, "%s: insufficient memory\n", progname);
         goto exit;
-    }
-
-    nerrors = arg_parse(argc, argv, argtable);
-    if (cl_list_decoders->count) {
-        list_codecs();
-        exit(2);
-    }
-    if (cl_help->count) {
-        printf("Usage:\n  comskip ");
-        arg_print_syntaxv(stdout, argtable, "\n\n");
-        arg_print_glossary(stdout, argtable, "  %-25s %s\n");
-        printf("\nDetection Methods\n");
-        printf("\t%3i - Black Frame\n", BLACK_FRAME);
-        printf("\t%3i - Logo\n", LOGO);
-        printf("\t%3i - Scene Change\n", SCENE_CHANGE);
-        printf("\t%3i - Resolution Change\n", RESOLUTION_CHANGE);
-        printf("\t%3i - Closed Captions\n", CC);
-        printf("\t%3i - Aspect Ratio\n", AR);
-        printf("\t%3i - Silence\n", SILENCE);
-        printf("\t%3i - CutScenes\n", CUTSCENE);
-        printf("\t255 - USE ALL AVAILABLE\n");
-        exit(2);
-    }
-
-    if (nerrors) {
-        printf("Usage:\n  comskip ");
-        arg_print_syntaxv(stdout, argtable, "\n\n");
-        arg_print_glossary(stdout, argtable, "  %-25s %s\n");
-        printf("\nDetection methods available:\n");
-        printf("\t%3i - Black Frame\n", BLACK_FRAME);
-        printf("\t%3i - Logo\n", LOGO);
-        printf("\t%3i - Scene Change\n", SCENE_CHANGE);
-        printf("\t%3i - Resolution Change\n", RESOLUTION_CHANGE);
-        printf("\t%3i - Closed Captions\n", CC);
-        printf("\t%3i - Aspect Ratio\n", AR);
-        printf("\t%3i - Silence\n", SILENCE);
-        printf("\t%3i - CutScenes\n", CUTSCENE);
-        printf("\t255 - USE ALL AVAILABLE\n");
-        printf("\nErrors:\n");
-        arg_print_errors(stdout, end, "ComSkip");
-        exit(2);
     }
 
     if (strcmp(in->extension[0], ".csv") != 0 && strcmp(in->extension[0], ".txt") != 0) {
@@ -7591,18 +7526,20 @@ FILE *LoadSettings(int argc, char **argv) {
 
 
     //	if (!loadingTXT)
-    LoadIniFile();
+    // todo ini file loaded here
+    // disabled this feature for now.
+    // LoadIniFile();
 
-//	live_tv = true;
+    //	live_tv = true;
 
     time(&ltime);
     now = localtime(&ltime);
     mil_time = (now->tm_hour * 100) + now->tm_min;
     if ((play_nice_start > -1) && (play_nice_end > -1)) {
         if (play_nice_start > play_nice_end) {
-            if ((mil_time >= play_nice_start) || (mil_time <= play_nice_end)) play_nice = true;
+            if ((mil_time >= play_nice_start) || (mil_time <= play_nice_end)) Settings.play_nice = true;
         } else {
-            if ((mil_time >= play_nice_start) && (mil_time <= play_nice_end)) play_nice = true;
+            if ((mil_time >= play_nice_start) && (mil_time <= play_nice_end)) Settings.play_nice = true;
         }
     }
 
@@ -7634,31 +7571,6 @@ FILE *LoadSettings(int argc, char **argv) {
     if (strstr(argv[0], "GUI") || strstr(argv[0], "-gui"))
         output_debugwindow = true;
 
-    if (cl_demux->count) {
-        output_demux = true;
-    }
-
-    if (cl_hwassist->count) {
-        hardware_decode = 1;
-    }
-    if (cl_use_cuvid->count) {
-        printf("Enabling use_cuvid\n");
-        use_cuvid = 1;
-    }
-    if (cl_use_vdpau->count) {
-        printf("Enabling use_vdpau\n");
-        use_vdpau = 1;
-    }
-
-    if (cl_use_dxva2->count) {
-        printf("Enabling use_dxva2\n");
-        use_dxva2 = 1;
-    }
-
-    if (cl_threads->count) {
-        thread_count = cl_threads->ival[0];
-    }
-
     if (!loadingTXT && !useExistingLogoFile && cl_logo->count == 0) {
         logo_file = myfopen(logofilename, "r");
         if (logo_file) {
@@ -7675,118 +7587,56 @@ FILE *LoadSettings(int argc, char **argv) {
         output_training = true;
     }
 
-
-    if (verbose) {
-        logo_file = myfopen(logofilename, "r");
-        if (loadingTXT) {
-            // Do nothing to the log file
-            verbose = 0;
-        } else if (loadingCSV) {
-            log_file = myfopen(logfilename, "w");
-            if (log_file) {
-                fprintf(log_file, "################################################################\n");
-                fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
-                fprintf(log_file, "Loading comskip csv file - %s\n", in->filename[0]);
-                fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
-                fprintf(log_file, "################################################################\n");
-                fclose(log_file);
-            }
-            log_file = NULL;
-        } else if (logo_file) {
-            fclose(logo_file);
-            log_file = myfopen(logfilename, "a+");
-            if (log_file) {
-                fprintf(log_file, "################################################################\n");
-                fprintf(log_file, "Starting second pass using %s\n", logofilename);
-                fprintf(log_file, "Time at start of second run:\n%s", ctime(&ltime));
-                fprintf(log_file, "################################################################\n");
-                fclose(log_file);
-            }
-            log_file = NULL;
-        } else {
-            log_file = myfopen(logfilename, "w");
-            if (log_file) {
-                fprintf(log_file, "################################################################\n");
-                fprintf(log_file, "Generated using %s %s\n", COMSKIPPUBLIC, PACKAGE_STRING);
-                fprintf(log_file, "Time at start of run:\n%s", ctime(&ltime));
-                fprintf(log_file, "################################################################\n");
-                fclose(log_file);
-            }
-            log_file = NULL;
-        }
-    }
-
-    if (cl_playnice->count) {
-        play_nice = true;
-        Debug(1, "ComSkip playing nice due as per command line.\n");
-    }
-
-    if (cl_detectmethod->count) {
-        commDetectMethod = cl_detectmethod->ival[0];
-        printf("Setting detection methods to %i as per command line.\n", commDetectMethod);
-    }
-
     if (cl_dump->count) {
         cutsceneno = cl_dump->ival[0];
         printf("Setting dump frame number to %i as per command line.\n", cutsceneno);
-    }
-
-    if (cl_ts->count) {
-        demux_pid = 1;
-        printf("Auto selecting the PID.\n");
-    }
-
-    if (cl_pid->count) {
-//		demux_pid = cl_pid->ival[0];
-        sscanf(cl_pid->sval[0], "%x", &demux_pid);
-        printf("Selecting PID %x as per command line.\n", demux_pid);
     }
 
 
     Debug(9, "Mpeg:\t%s\nExe\t%s\nLogo:\t%s\nIni:\t%s\n", mpegfilename, exefilename, logofilename, inifilename);
     Debug(1, "\nDetection Methods to be used:\n");
     i = 0;
-    if (commDetectMethod & BLACK_FRAME) {
+    if (Settings.commDetectMethod & BLACK_FRAME) {
         i++;
         Debug(1, "\t%i) Black Frame\n", i);
     }
 
-    if (commDetectMethod & LOGO) {
+    if (Settings.commDetectMethod & LOGO) {
         i++;
         Debug(1, "\t%i) Logo - Give up after %i seconds\n", i, giveUpOnLogoSearch);
     }
 
-    if (commDetectMethod & CUTSCENE) {
+    if (Settings.commDetectMethod & CUTSCENE) {
 //		commDetectMethod &= ~SCENE_CHANGE;
     }
 
-    if (commDetectMethod & SCENE_CHANGE) {
+    if (Settings.commDetectMethod & SCENE_CHANGE) {
         i++;
         Debug(1, "\t%i) Scene Change\n", i);
     }
 
-    if (commDetectMethod & RESOLUTION_CHANGE) {
+    if (Settings.commDetectMethod & RESOLUTION_CHANGE) {
         i++;
         Debug(1, "\t%i) Resolution Change\n", i);
     }
 
-    if (commDetectMethod & CC) {
+    if (Settings.commDetectMethod & CC) {
         i++;
         processCC = true;
         Debug(1, "\t%i) Closed Captions\n", i);
     }
 
-    if (commDetectMethod & AR) {
+    if (Settings.commDetectMethod & AR) {
         i++;
         Debug(1, "\t%i) Aspect Ratio\n", i);
     }
 
-    if (commDetectMethod & SILENCE) {
+    if (Settings.commDetectMethod & SILENCE) {
         i++;
         Debug(1, "\t%i) Silence\n", i);
     }
 
-    if (commDetectMethod & CUTSCENE) {
+    if (Settings.commDetectMethod & CUTSCENE) {
         i++;
         Debug(1, "\t%i) CutScenes\n", i);
     }
@@ -7801,7 +7651,7 @@ FILE *LoadSettings(int argc, char **argv) {
                 play_nice_end,
                 mil_time
         );
-        if (play_nice) {
+        if (Settings.play_nice) {
             Debug(1, "so comskip is running slowly.\n");
         } else {
             Debug(1, "so it's full speed ahead!\n");
@@ -7989,7 +7839,7 @@ void ProcessARInfo(int minY, int maxY, int minX, int maxX) {
                     last_ar_ratio = ar_ratio_trend;
                     ar_ratio_trend_counter = 0;
                     ar_misratio_trend_counter = 0;
-                    if (commDetectMethod & AR) {
+                    if (Settings.commDetectMethod & AR) {
 
                         ar_block[ar_block_count].end = ar_ratio_start - 1;
                         ar_block_count++;
@@ -8051,7 +7901,7 @@ void ProcessARInfo(int minY, int maxY, int minX, int maxX) {
     */
     if (ar_misratio_trend_counter > 3 * fps && last_ar_ratio != AR_UNDEF) {
         last_ar_ratio = ar_ratio_trend = AR_UNDEF;
-        if (commDetectMethod & AR) {
+        if (Settings.commDetectMethod & AR) {
             ar_block[ar_block_count].end = framenum_real - 3 * (int) fps - 1;
             ar_block_count++;
             InitializeARBlockArray(ar_block_count);
@@ -8200,7 +8050,7 @@ void ScanBottom(intptr_t arg) {
     int w = (int) arg;
 #ifdef SCAN_MULTI
     again:
-    if (thread_count > 1)
+    if (Settings.thread_count > 1)
         sema_wait(thwait[w]);
 #endif
     brightCount = 0;
@@ -8233,7 +8083,7 @@ void ScanBottom(intptr_t arg) {
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-    if (thread_count > 1) {
+    if (Settings.thread_count > 1) {
         sema_post(thdone[w]);
         goto again;
     }
@@ -8252,7 +8102,7 @@ void ScanTop(intptr_t arg) {
 
 #ifdef SCAN_MULTI
     again:
-    if (thread_count > 1)
+    if (Settings.thread_count > 1)
         sema_wait(thwait[w]);
 #endif
     max_delta = min(videowidth, height) / 2 - border;
@@ -8285,7 +8135,7 @@ void ScanTop(intptr_t arg) {
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-    if (thread_count > 1) {
+    if (Settings.thread_count > 1) {
         sema_post(thdone[w]);
         goto again;
     }
@@ -8304,7 +8154,7 @@ void ScanLeft(intptr_t arg) {
 
 #ifdef SCAN_MULTI
     again:
-    if (thread_count > 1)
+    if (Settings.thread_count > 1)
         sema_wait(thwait[w]);
 #endif
     max_delta = min(videowidth, height) / 2 - border;
@@ -8337,7 +8187,7 @@ void ScanLeft(intptr_t arg) {
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-    if (thread_count > 1) {
+    if (Settings.thread_count > 1) {
         sema_post(thdone[w]);
         goto again;
     }
@@ -8356,7 +8206,7 @@ void ScanRight(intptr_t arg) {
 
 #ifdef SCAN_MULTI
     again:
-    if (thread_count > 1)
+    if (Settings.thread_count > 1)
         sema_wait(thwait[w]);
 #endif
     max_delta = min(videowidth, height) / 2 - border;
@@ -8388,7 +8238,7 @@ void ScanRight(intptr_t arg) {
         delta += scan_step;
     }
 #ifdef SCAN_MULTI
-    if (thread_count > 1) {
+    if (Settings.thread_count > 1) {
         sema_post(thdone[w]);
         goto again;
     }
@@ -8475,7 +8325,7 @@ bool CheckSceneHasChanged(void) {
 //    max_delta =  min(videowidth,height)/2 - border;
 
 #ifdef SCAN_MULTI
-    if (thread_count > 1) {
+    if (Settings.thread_count > 1) {
         if (!thread_init_done) {
             thread_init_done = 1;
             for (i = 0; i < THREAD_WORKERS; i++) {
@@ -8522,7 +8372,7 @@ bool CheckSceneHasChanged(void) {
         last_brightness = brightness;
 
 
-        if (commDetectMethod & AR) {
+        if (Settings.commDetectMethod & AR) {
             ProcessARInfoInit(minY, maxY, minX, maxX);
             if (framearray) frame[frame_count].ar_ratio = last_ar_ratio;
         }
@@ -8537,7 +8387,7 @@ bool CheckSceneHasChanged(void) {
             frame[frame_count].schange_percent = 0;
         }
 
-        if (commDetectMethod & SCENE_CHANGE) {
+        if (Settings.commDetectMethod & SCENE_CHANGE) {
             InitializeSchangeArray(0);
             schange[0].frame = 0;
             schange[0].percentage = 0;
@@ -8659,7 +8509,7 @@ bool CheckSceneHasChanged(void) {
 //		InsertBlackFrame(framenum_real,brightness,uniform,curvolume,cause;
 
     cause = 0;
-    if (commDetectMethod & BLACK_FRAME) {
+    if (Settings.commDetectMethod & BLACK_FRAME) {
         if ((brightness <= max_avg_brightness) && hasBright <= maxbright * width * height / 720 / 480 && !isDim /* && uniform < non_uniformity */  /* && !lastLogoTest because logo disappearance is detected too late*/) {
             cause |= C_b;
             Debug(7, "Frame %6i (%.3fs) - Black frame with brightness of %i,uniform of %i and volume of %i\n", framenum_real, get_frame_pts(framenum_real), brightness, uniform, black[MAX(0, black_count - 1)].volume);
@@ -8696,7 +8546,7 @@ bool CheckSceneHasChanged(void) {
     		Debug(7, "Frame %6i - Black frame because large brightness change from %i to %i with uniform %i\n", framenum_real, last_brightness, brightness, uniform);
     	} // else
     */
-    if (commDetectMethod & SCENE_CHANGE) {
+    if (Settings.commDetectMethod & SCENE_CHANGE) {
 
         if (!(frame[frame_count - 1].isblack & C_b) && !(cause & C_b)) {
             if (abs(frame[frame_count - 1].brightness - last_brightness) > brightness_jump) {
@@ -8784,7 +8634,7 @@ bool CheckSceneHasChanged(void) {
 //    if (frame[frame_count].cutscenematch < cutscenedelta)
 //        cause |= C_t;
 
-    if (commDetectMethod & SILENCE) {
+    if (Settings.commDetectMethod & SILENCE) {
         if (0 <= frame[frame_count].volume && frame[frame_count].volume < max_silence && min_silence == 1) {
             cause |= C_v;
         }
@@ -8952,78 +8802,6 @@ void PrintCCBlocks(void) {
 
     Debug(2, "The %s type of closed captions were determined to be the most common.\n", CCTypeToStr(most_cc_type));
 }
-
-/*
-static edge_inc = 1;
-static edge_dec = 20;
-
-
-void EdgeCount(unsigned char* frame_ptr) {
-	int				i,index;
-	int				x;
-	int				y;
-	unsigned char	herePixel;
-	static int framecnt;
-
-	edge_count = 0;
-	if (aggressive_logo_rejection) {
-		for (y = edge_radius + (int)(height * borderIgnore); y < (subtitles? height/2 : (height - edge_radius - (int)(height * borderIgnore))); y++) {
-			for (x = edge_radius + (int)(width * borderIgnore); x < (width - edge_radius - (int)(width * borderIgnore)); x++) {
-				herePixel = frame_ptr[y * width + x];
-				if (
-					(abs(frame_ptr[y * width + (x - edge_radius)] - herePixel) >= edge_level_threshold)
-					) {
-					if (hor_edgecount[y * width + x] <= num_logo_buffers)
-						hor_edgecount[y * width + x]++;
-					else
-						edge_count++;
-				} else
-					hor_edgecount[y * width + x] = 0;
-
-				if (
-					(abs(frame_ptr[(y - edge_radius) * width + x] - herePixel) >= edge_level_threshold)
-					) {
-					if (ver_edgecount[y * width + x] <= num_logo_buffers)
-						ver_edgecount[y * width + x]++;
-					else
-						edge_count++;
-				} else
-					ver_edgecount[y * width + x] = 0;
-			}
-		}
-	} else {
-		for (y = edge_radius + (int)(height * borderIgnore); y < (subtitles? height/2 : (height - edge_radius - (int)(height * borderIgnore))); y++) {
-			for (x = edge_radius + (int)(width * borderIgnore); x < (width - edge_radius - (int)(width * borderIgnore)); x++) {
-				herePixel = frame_ptr[y * width + x];
-				if (
-					(abs(frame_ptr[y * width + (x - edge_radius)] - herePixel) >= edge_level_threshold) ||
-					(abs(frame_ptr[y * width + (x + edge_radius)] - herePixel) >= edge_level_threshold)
-					) {
-					if (hor_edgecount[y * width + x] < num_logo_buffers)
-						hor_edgecount[y * width + x]++;
-					else
-						edge_count++;
-				} else
-					hor_edgecount[y * width + x] = 0;
-
-				if (
-					(abs(frame_ptr[(y - edge_radius) * width + x] - herePixel) >= edge_level_threshold) ||
-					(abs(frame_ptr[(y + edge_radius) * width + x] - herePixel) >= edge_level_threshold)
-					) {
-					if (ver_edgecount[y * width + x] < num_logo_buffers)
-						ver_edgecount[y * width + x]++;
-					else
-						edge_count++;
-				} else
-					ver_edgecount[y * width + x] = 0;
-			}
-		}
-	}
-	if (edge_count > 350)
-		logoBuffersFull = true;
-}
-
-*/
 
 #define TEST_HEDGE1(FRAME, X, Y)    (abs(FRAME[(Y) * width + (X) - edge_radius]   - FRAME[(Y) * width + (X) + edge_radius]  ) >= edge_level_threshold)
 #define TEST_VEDGE1(FRAME, X, Y)    (abs(FRAME[((Y) - edge_radius) * width + (X)] - FRAME[((Y) + edge_radius) * width + (X)]) >= edge_level_threshold)
@@ -9843,7 +9621,7 @@ bool SearchForLogoEdges(void) {
 
     if (!logoInfoAvailable && startOverAfterLogoInfoAvail && (framenum_real > (int) (giveUpOnLogoSearch * fps))) {
         Debug(1, "No logo was found after %i frames.\nGiving up", framenum_real);
-        commDetectMethod -= LOGO;
+        Settings.commDetectMethod -= LOGO;
     }
     if (added_recording > 0)
         giveUpOnLogoSearch += added_recording * 60;
@@ -10583,7 +10361,7 @@ void InitComSkip(void) {
 //		exit(100);
 //	}
 
-    if (commDetectMethod & LOGO) {
+    if (Settings.commDetectMethod & LOGO) {
         if (!initialized) {
             max_logo_block_count = 1000;
             logo_block = malloc((int) ((max_logo_block_count + 1) * sizeof(logo_block_info)));
@@ -10600,7 +10378,7 @@ void InitComSkip(void) {
         memset(min_br, 255, sizeof(min_br));
     }
 
-    if (commDetectMethod & SCENE_CHANGE) {
+    if (Settings.commDetectMethod & SCENE_CHANGE) {
         if (!initialized) {
             max_schange_count = 2000;
             schange = malloc((int) ((max_schange_count + 1) * sizeof(schange_info)));
@@ -11939,7 +11717,7 @@ void ProcessCSV(FILE *in_file) {
         frame[i].ar_ratio = last_ar_ratio;
 
 
-        if ((commDetectMethod & RESOLUTION_CHANGE)) {
+        if ((Settings.commDetectMethod & RESOLUTION_CHANGE)) {
             /* not reliable!!!!!!!!!!!!!!!!!!!!!
             			frame[i].isblack &= ~C_r;
             			videowidth = width = frame[i].minX + frame[i].maxX;
@@ -11954,7 +11732,7 @@ void ProcessCSV(FILE *in_file) {
         } else
             frame[i].isblack &= ~C_r;
 
-        if (commDetectMethod & BLACK_FRAME) {
+        if (Settings.commDetectMethod & BLACK_FRAME) {
             // if (frame[i].brightness <= max_avg_brightness && (non_uniformity == 0 || frame[i].uniform < non_uniformity)/* && frame[i].volume < max_volume */ && !(frame[i].isblack & C_b))
             //    frame[i].isblack |= C_b;
             if ((frame[i].isblack & C_b) && frame[i].brightness > max_avg_brightness)
@@ -11981,7 +11759,7 @@ void ProcessCSV(FILE *in_file) {
             frame[i].isblack &= ~C_s;
 
 
-        if (commDetectMethod & SCENE_CHANGE && !(frame[i - 1].isblack & C_b) && !(frame[i].isblack & C_b)) {
+        if (Settings.commDetectMethod & SCENE_CHANGE && !(frame[i - 1].isblack & C_b) && !(frame[i].isblack & C_b)) {
             if (frame[i].brightness > 5 && abs(frame[i].brightness - last_brightness) > brightness_jump) {
                 frame[i].isblack |= C_s;
             }
@@ -11997,7 +11775,7 @@ void ProcessCSV(FILE *in_file) {
         if (frame[i].isblack & C_t)
             frame[i].isblack &= ~C_t;
 
-        if (commDetectMethod & CUTSCENE && cutscene_nonzero_count > 0) {
+        if (Settings.commDetectMethod & CUTSCENE && cutscene_nonzero_count > 0) {
             if (frame[i].cutscenematch < cutscenedelta)
                 frame[i].isblack |= C_t;
         }
@@ -12005,7 +11783,7 @@ void ProcessCSV(FILE *in_file) {
         if (frame[i].isblack & C_v)
             frame[i].isblack &= ~C_v;
 
-        if (commDetectMethod & SILENCE) {
+        if (Settings.commDetectMethod & SILENCE) {
             if (0 <= frame[i].volume && frame[i].volume < max_silence && min_silence == 1) {
                 frame[i].isblack |= C_v;
             }
@@ -12047,7 +11825,7 @@ void ProcessCSV(FILE *in_file) {
             schange_count++;
         }
 
-        if ((commDetectMethod & LOGO) && ((i % (int) (fps * logoFreq)) == 0)) {
+        if ((Settings.commDetectMethod & LOGO) && ((i % (int) (fps * logoFreq)) == 0)) {
             curLogoTest = (frame[i].currentGoodEdge > logo_threshold);
             lastLogoTest = ProcessLogoTest(i, curLogoTest, false);
             frame[i].logo_present = lastLogoTest;
@@ -13102,7 +12880,7 @@ void SetARofBlocks(void) {
     int i, j, k;
     double sumAR = 0.0;
     int frameCount = 0;
-    if (!(commDetectMethod & AR))
+    if (!(Settings.commDetectMethod & AR))
         return;
     k = 0;
     for (i = 0; i < block_count; i++) {
@@ -13277,7 +13055,7 @@ void BuildCommListAsYouGo(void) {
             }
         }
 
-        useLogo = commDetectMethod & LOGO;
+        useLogo = Settings.commDetectMethod & LOGO;
 
         if ((logo_block_count == -1) || (!logoInfoAvailable)) useLogo = false;
 
@@ -13577,72 +13355,6 @@ void set_fps(double fp) {
 
 }
 
-/* no longer used
-
-#define MAX_SAVED_VOLUMES	10000
-
-static struct
-{
-    int frame;
-    int volume;
-} volumes[MAX_SAVED_VOLUMES];
-static int max_fill = 0;
-
-void SaveVolume (int f,int v)
-{
-    int i;
-    for (i = 0; i < MAX_SAVED_VOLUMES; i++)
-    {
-        if (volumes[i].frame ==0)
-        {
-            volumes[i].frame = f;
-            volumes[i].volume = v;
-            if (i > max_fill)
-                max_fill = i;
-            return;
-        }
-    }
-    Debug (1, "Panic volume buffer\n");
-    if (f > 8 * 60 * 60 * 50)  // max 8 hours with fps of 50
-    {
-        Debug(0, "Too many volume panic's, protected file?\n");
-        exit(103);   // exit as probably protected file .
-    }
-
-    for (i = 0; i < MAX_SAVED_VOLUMES; i++)
-    {
-        volumes[i].frame = 0;
-    }
-    max_fill = 0;
-}
-
-int RetreiveVolume (int f)
-{
-    int i;
-    for (i = 0; i <= max_fill; i++)
-    {
-        if (volumes[i].frame ==f)
-        {
-            volumes[i].frame = 0;
-            return(volumes[i].volume);
-        }
-    }
-    return(-1);
-}
-
-
-void ClearVolumeBuffer ()
-{
-    int i;
-    for (i = 0; i <= max_fill; i++)
-    {
-        volumes[i].frame = 0;
-        volumes[i].volume = 0;
-    }
-    max_fill = 0;
-}
-*/
-
 void set_frame_volume(unsigned int f, int volume) {
     int i;
     int act_framenum;
@@ -13688,7 +13400,7 @@ FILE *dump_audio_file;
 
 void dump_audio_start() {
     char temp[256];
-    if (!output_demux) return;
+    if (!Settings.output_demux) return;
     if (!dump_audio_file) {
         sprintf(temp, "%s.mp2", workbasename);
         dump_audio_file = myfopen(temp, "wb");
@@ -13696,7 +13408,7 @@ void dump_audio_start() {
 }
 
 void dump_audio(char *start, char *end) {
-    if (!output_demux) return;
+    if (!Settings.output_demux) return;
     if (!dump_audio_file) return;
 
     fwrite(start, end - start, 1, dump_audio_file);
@@ -13707,7 +13419,7 @@ FILE *dump_video_file;
 
 void dump_video_start() {
     char temp[256];
-    if (!output_demux) return;
+    if (!Settings.output_demux) return;
     if (!dump_video_file) {
         sprintf(temp, "%s.m2v", workbasename);
         dump_video_file = myfopen(temp, "wb");
@@ -13715,14 +13427,14 @@ void dump_video_start() {
 }
 
 void dump_video(char *start, char *end) {
-    if (!output_demux) return;
+    if (!Settings.output_demux) return;
     if (!dump_video_file) return;
     fwrite(start, end - start, 1, dump_video_file);
 //	fclose(dump_video_file);
 }
 
 void close_dump(void) {
-    if (!output_demux) return;
+    if (!Settings.output_demux) return;
     if (dump_audio_file) {
         fclose(dump_audio_file);
     }
@@ -13758,4 +13470,9 @@ void close_data() {
         fclose(dump_data_file);
         dump_data_file = 0;
     }
+}
+
+
+void listAvailableDecoders() {
+    list_codecs();
 }
